@@ -63,7 +63,13 @@ export function ChatPanel({ projectId, chat, runActive, connected }: Props) {
       </div>
 
       <form className="chat-input" onSubmit={handleSubmit}>
+        <label className="sr-only" htmlFor="run-message">
+          输入运行需求
+        </label>
         <textarea
+          id="run-message"
+          name="message"
+          autoComplete="off"
           placeholder={
             runActive
               ? "AI 正在运行..."
@@ -93,8 +99,9 @@ export function ChatPanel({ projectId, chat, runActive, connected }: Props) {
               className="btn-stop"
               onClick={() => cancelMut.mutate()}
               disabled={cancelMut.isPending}
+              aria-label="停止当前运行"
             >
-              ■ 停止
+              <span aria-hidden="true">■</span> 停止
             </button>
           ) : (
             <button type="submit" disabled={!canSend || !input.trim()}>

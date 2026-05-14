@@ -43,5 +43,28 @@ export function ResizeHandle({ side, width, setWidth, min = 160, max = 900 }: Pr
     document.body.style.userSelect = "none";
   };
 
-  return <div className="resize-handle" onPointerDown={onPointerDown} />;
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 48 : 16;
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const direction = e.key === "ArrowRight" ? 1 : -1;
+    const delta = side === "left" ? direction * step : -direction * step;
+    const next = widthRef.current + delta;
+    setWidth(Math.max(min, Math.min(max, next)));
+  };
+
+  return (
+    <div
+      className="resize-handle"
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+      role="separator"
+      aria-label={side === "left" ? "调整项目栏宽度" : "调整产物栏宽度"}
+      aria-orientation="vertical"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={width}
+      tabIndex={0}
+    />
+  );
 }

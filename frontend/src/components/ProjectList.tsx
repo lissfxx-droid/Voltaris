@@ -47,7 +47,10 @@ export function ProjectList({ activeId, onSelect }: Props) {
   return (
     <div className="project-list">
       <div className="project-list-header">
-        <h2>项目</h2>
+        <div>
+          <h2>项目</h2>
+          <p>{projects.length ? `${projects.length} 个工作区` : "等待创建"}</p>
+        </div>
         <button
           className="btn-primary"
           onClick={() => setCreating(true)}
@@ -61,6 +64,10 @@ export function ProjectList({ activeId, onSelect }: Props) {
         <form className="project-create-form" onSubmit={handleCreate}>
           <input
             autoFocus
+            id="project-name"
+            name="projectName"
+            autoComplete="off"
+            aria-label="项目名"
             placeholder="项目名 (建议 ASCII)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -98,12 +105,19 @@ export function ProjectList({ activeId, onSelect }: Props) {
             className={`project-item${activeId === p.id ? " active" : ""}`}
           >
             <button className="project-item-name" onClick={() => onSelect(p.id)}>
-              <div className="name">{p.name}</div>
-              <div className="id">{p.id}</div>
+              <span className="name-row">
+                <span className="name">{p.name}</span>
+                {activeId === p.id && <span className="active-pill">当前</span>}
+              </span>
+              <span className="project-meta">
+                <span>{shortId(p.id)}</span>
+                <span>{formatDate(p.updated_at)}</span>
+              </span>
             </button>
             <button
               className="btn-icon"
               title="删除"
+              aria-label={`删除项目 ${p.name}`}
               onClick={() => {
                 if (confirm(`确定删除「${p.name}」？workdir 也会删除`)) {
                   deleteMut.mutate(p.id);
@@ -117,4 +131,19 @@ export function ProjectList({ activeId, onSelect }: Props) {
       </ul>
     </div>
   );
+}
+
+function shortId(id: string): string {
+  return id.slice(0, 8);
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
