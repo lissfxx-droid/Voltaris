@@ -1,11 +1,11 @@
-# PCB System Frontend
+# Voltaris Frontend
 
 React + Vite + TypeScript 前端。三栏布局：项目列表 / 聊天+Phase 进度 / markdown 预览。
 
 ## 启动
 
 ```bash
-cd pcb-system/frontend
+cd Voltaris/frontend
 npm install
 npm run dev
 # → http://localhost:5173

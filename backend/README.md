@@ -1,11 +1,11 @@
-# PCB System Backend
+# Voltaris Backend
 
 FastAPI 后端：管理项目、按配置启动 AI 执行引擎（Claude Code 或 Codex CLI）、转发统一事件、监听 markdown 文件变化。
 
 ## 安装
 
 ```bash
-cd pcb-system/backend
+cd Voltaris/backend
 python -m venv .venv
 source .venv/bin/activate         # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -74,10 +74,10 @@ Claude Code 支持 `Agent` 工具和 `.claude/agents` subagent 协议。Codex CL
 
 ## 启动
 
-从 `pcb-system/` 根目录跑（**不是** backend 子目录）：
+从 `Voltaris/` 根目录跑（**不是** backend 子目录）：
 
 ```bash
-cd pcb-system
+cd Voltaris
 python -m uvicorn backend.main:app --reload --port 8000
 ```
 
@@ -142,8 +142,8 @@ curl -s -XPOST http://localhost:8000/projects/wenkongqi-ceshi-abc12345/runs \
 
 ## 数据存储
 
-- `pcb-system/projects/<project-id>/` — 每个项目的 workdir（含 .git）
-- `pcb-system/data/pcb.sqlite` — 元数据（项目、runs、messages）
-- `pcb-system/backend/prompts/` — orchestrator + subagents（每次 run 启动前拷贝到项目）
+- `Voltaris/projects/<project-id>/` — 每个项目的 workdir（含 .git）
+- `Voltaris/data/pcb.sqlite` — 元数据（项目、runs、messages）
+- `Voltaris/backend/prompts/` — orchestrator + subagents（每次 run 启动前拷贝到项目）
 
 修改 `backend/prompts/` 下的 .md，下次任意 run 启动会自动用新版（已有项目无需迁移）。
