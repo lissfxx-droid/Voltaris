@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from . import db, projects, runner, ws
+from .providers import selected_provider_name
 
 
 @asynccontextmanager
@@ -42,7 +43,7 @@ class StartRunIn(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "agent_provider": selected_provider_name()}
 
 
 @app.get("/projects")
@@ -64,6 +65,7 @@ async def get_project_detail(project_id: str):
         raise HTTPException(404, "project not found")
     proj["files"] = await projects.list_files(project_id)
     proj["active_run"] = bool(runner.get_active(project_id))
+    proj["agent_provider"] = selected_provider_name()
     return proj
 
 
@@ -98,7 +100,12 @@ async def start_run(project_id: str, body: StartRunIn):
         raise HTTPException(404, str(e))
     except RuntimeError as e:
         raise HTTPException(409, str(e))
-    return {"run_id": handle.run_id, "project_id": project_id, "status": "started"}
+    return {
+        "run_id": handle.run_id,
+        "project_id": project_id,
+        "status": "started",
+        "agent_provider": handle.provider.name,
+    }
 
 
 @app.post("/projects/{project_id}/runs/cancel")

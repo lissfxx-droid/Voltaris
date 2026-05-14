@@ -1,0 +1,152 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from backend.providers import get_provider
+from backend.providers.claude import ClaudeProvider
+from backend.providers.codex import CodexProvider
+
+
+def events(provider, payload: dict, channel: str = "stdout") -> list[dict]:
+    line = json.dumps(payload)
+    return [item.event for item in provider.parse_line(line, channel)]
+
+
+def test_provider_selection(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VOLTARIS_AGENT_PROVIDER", "codex")
+    assert get_provider().name == "codex"
+
+    monkeypatch.setenv("VOLTARIS_AGENT_PROVIDER", "claude")
+    assert get_provider().name == "claude"
+
+    monkeypatch.setenv("VOLTARIS_AGENT_PROVIDER", "unknown")
+    with pytest.raises(ValueError):
+        get_provider()
+
+
+def test_claude_events_normalize_to_internal_protocol() -> None:
+    provider = ClaudeProvider()
+
+    session = events(
+        provider,
+        {"type": "system", "subtype": "init", "session_id": "abcdef123456"},
+    )[0]
+    assert session["type"] == "agent_session"
+    assert session["provider"] == "claude"
+    assert session["session_id"] == "abcdef123456"
+
+    batch = events(
+        provider,
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "hello"},
+                    {"type": "tool_use", "id": "tool-1", "name": "Read", "input": {"file": "a.md"}},
+                ]
+            },
+        },
+    )[0]
+    assert batch["type"] == "agent_batch"
+    assert [event["type"] for event in batch["events"]] == ["agent_message", "agent_tool"]
+    assert batch["events"][0]["text"] == "hello"
+    assert batch["events"][1]["tool_id"] == "tool-1"
+
+    result = events(
+        provider,
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool-1",
+                        "content": [{"type": "text", "text": "done"}],
+                    }
+                ]
+            },
+        },
+    )[0]
+    assert result["type"] == "agent_tool"
+    assert result["phase"] == "finished"
+    assert result["result"] == "done"
+
+
+def test_codex_command_is_explicit_and_sandboxed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("CODEX_BIN", "codex-test")
+    monkeypatch.setenv("CODEX_MODEL", "gpt-test")
+    monkeypatch.delenv("CODEX_BYPASS_SANDBOX", raising=False)
+
+    command = CodexProvider().build_command("build a board", tmp_path)
+
+    assert command.argv[:2] == ["codex-test", "exec"]
+    assert "--json" in command.argv
+    assert command.argv[command.argv.index("--cd") + 1] == str(tmp_path)
+    assert command.argv[command.argv.index("--sandbox") + 1] == "workspace-write"
+    assert command.argv[command.argv.index("--ask-for-approval") + 1] == "never"
+    assert "--dangerously-bypass-approvals-and-sandbox" not in command.argv
+    assert command.argv[-1] == "build a board"
+
+
+def test_codex_events_normalize_to_internal_protocol() -> None:
+    provider = CodexProvider()
+
+    session = events(
+        provider,
+        {"type": "event_msg", "msg": {"type": "session_configured", "session_id": "sess-1"}},
+    )[0]
+    assert session["type"] == "agent_session"
+    assert session["provider"] == "codex"
+    assert session["session_id"] == "sess-1"
+
+    message = events(
+        provider,
+        {"type": "agent_message_delta", "delta": "Phase 1 complete"},
+    )[0]
+    assert message["type"] == "agent_message"
+    assert message["text"] == "Phase 1 complete"
+    assert isinstance(message["raw"], dict)
+
+    tool = events(
+        provider,
+        {
+            "type": "exec_command_begin",
+            "call_id": "call-1",
+            "command": "git status",
+        },
+    )[0]
+    assert tool["type"] == "agent_tool"
+    assert tool["phase"] == "started"
+    assert tool["input"] == {"command": "git status"}
+
+    result = events(
+        provider,
+        {
+            "type": "exec_command_end",
+            "call_id": "call-1",
+            "stdout": "clean",
+            "exit_code": 0,
+        },
+    )[0]
+    assert result["type"] == "agent_tool"
+    assert result["phase"] == "finished"
+    assert result["is_error"] is False
+
+
+def test_codex_prepare_workdir_writes_agents_md(tmp_path: Path) -> None:
+    CodexProvider().prepare_workdir(tmp_path)
+
+    agents_md = tmp_path / "AGENTS.md"
+    assert agents_md.exists()
+    content = agents_md.read_text(encoding="utf-8")
+    assert "Voltaris Codex Runtime Instructions" in content
+    assert "## Orchestrator" in content
+    assert "### requirement-analyzer" in content
+    assert ".codex/refs/CircuitIR.md" in content
+    assert ".codex/tools/validate.py" in content
+    assert (tmp_path / ".codex" / "agents" / "requirement-analyzer.md").exists()
+    assert (tmp_path / ".codex" / "refs" / "CircuitIR.md").exists()
+    assert (tmp_path / ".codex" / "tools" / "validate.py").exists()

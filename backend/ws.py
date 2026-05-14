@@ -17,7 +17,7 @@ async def project_socket(websocket: WebSocket, project_id: str, since: int = 0):
     """One socket per project. Streams:
 
     - replay history (messages with seq > `since`)
-    - live run events (text_delta / tool_use / tool_result / run_complete)
+    - live run events (agent_message / agent_tool / agent_result / run_complete)
     - file events (file_updated / file_deleted)
     """
     proj = await projects.get_project(project_id)
@@ -54,7 +54,7 @@ async def project_socket(websocket: WebSocket, project_id: str, since: int = 0):
 
     # 3. Subscribe to live events.
     # Subscribe at the project level so the same WS keeps receiving events
-    # across multiple Claude runs (each run creates a new RunHandle, but
+    # across multiple provider runs (each run creates a new RunHandle, but
     # project-level subscription persists).
     runner.subscribe(project_id, _send)
     watcher.subscribe(project_id, _send)

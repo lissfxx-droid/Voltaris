@@ -439,7 +439,7 @@ pre {
 .system-line.system-warning { background: #fff7e0; color: #c08400; }
 .system-line.system-error { background: #fee; color: #d33; }
 
-/* When the system line carries Claude's final result (rendered as markdown),
+/* When the system line carries the provider's final result (rendered as markdown),
  * switch from compact pill to a wider card so headings/lists/code lay out. */
 .system-line.system-md {
   align-self: stretch;

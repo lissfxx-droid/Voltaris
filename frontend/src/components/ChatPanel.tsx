@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { api } from "../api";
-import type { ChatItem, ChatToolUseItem } from "../types";
+import type { AgentProvider, ChatItem, ChatToolUseItem } from "../types";
 
 interface Props {
   projectId: string;
@@ -66,7 +66,7 @@ export function ChatPanel({ projectId, chat, runActive, connected }: Props) {
         <textarea
           placeholder={
             runActive
-              ? "Claude 正在运行..."
+              ? "AI 正在运行..."
               : "输入消息（Cmd/Ctrl+Enter 发送）"
           }
           value={input}
@@ -117,7 +117,7 @@ function ChatBubble({ item }: { item: ChatItem }) {
   if (item.kind === "text") {
     return (
       <div className="bubble bubble-assistant">
-        <div className="bubble-role">Claude</div>
+        <div className="bubble-role">{providerLabel(item.provider)}</div>
         <div className="bubble-text bubble-md">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.text}</ReactMarkdown>
         </div>
@@ -133,7 +133,7 @@ function ChatBubble({ item }: { item: ChatItem }) {
     );
   }
   if (item.kind === "system") {
-    // success/error usually carry Claude's formatted final summary — render
+    // success/error usually carry the provider's formatted final summary — render
     // markdown so headings, lists and code spans show. info/warning are
     // short status strings; keep them as plain text.
     const isMd = item.level === "success" || item.level === "error";
@@ -148,6 +148,12 @@ function ChatBubble({ item }: { item: ChatItem }) {
     );
   }
   return <ToolUseCard item={item} />;
+}
+
+function providerLabel(provider?: AgentProvider): string {
+  if (provider === "codex") return "Codex";
+  if (provider === "claude") return "Claude";
+  return "AI";
 }
 
 function ToolUseCard({ item }: { item: ChatToolUseItem }) {
