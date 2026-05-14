@@ -86,6 +86,11 @@ textarea:focus {
   border-color: #176f6b;
 }
 
+:focus-visible {
+  outline: 2px solid #15948b;
+  outline-offset: 2px;
+}
+
 pre {
   font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
@@ -287,6 +292,9 @@ pre {
 }
 .resize-handle:hover::before {
   background: #176f6b;
+}
+.resize-handle:focus-visible::before {
+  background: #15948b;
 }
 
 .col-left {
@@ -1142,4 +1150,243 @@ pre {
   background: none;
   color: inherit;
   padding: 0;
+}
+
+@media (max-width: 1180px) {
+  .app {
+    grid-template-columns: minmax(230px, 28vw) 0 minmax(0, 1.1fr) 0 minmax(330px, 0.9fr) !important;
+    gap: 0;
+  }
+
+  .resize-handle {
+    display: none;
+  }
+
+  .col-mid {
+    border-left: 1px solid #d7dfe5;
+  }
+}
+
+@media (max-width: 920px) {
+  .app-shell {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .workspace-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .brand-block {
+    min-width: 0;
+  }
+
+  .workspace-context {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .workspace-context > div:not(.status-chip) {
+    min-width: 88px;
+  }
+
+  .workspace-context strong {
+    max-width: 150px;
+  }
+
+  .app {
+    display: flex;
+    height: auto;
+    min-height: 0;
+    overflow: auto;
+    width: 100%;
+    padding: 8px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .col-left,
+  .col-mid,
+  .col-right {
+    flex: none;
+    min-height: 0;
+    border: 1px solid #d7dfe5;
+    border-radius: 8px;
+  }
+
+  .col-left {
+    max-height: 220px;
+  }
+
+  .project-list {
+    padding: 12px;
+  }
+
+  .project-items {
+    max-height: 150px;
+    overflow: auto;
+  }
+
+  .col-mid {
+    min-height: 620px;
+  }
+
+  .col-right {
+    min-height: 540px;
+  }
+
+  .phase-progress,
+  .run-status-bar,
+  .chat-input {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .phase-bar {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .phase-segment {
+    min-width: 72px;
+  }
+
+  .run-status-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .run-status-detail {
+    max-width: none;
+  }
+
+  .run-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .run-metrics div {
+    min-width: 0;
+  }
+
+  .bubble,
+  .tool-card,
+  .system-line.system-md {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .artifact-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .artifact-meta {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .md-content {
+    padding: 18px 16px 24px;
+  }
+}
+
+@media (max-width: 560px) {
+  body {
+    font-size: 13px;
+  }
+
+  button {
+    min-height: 40px;
+  }
+
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .workspace-context {
+    gap: 6px;
+  }
+
+  .workspace-context > div:not(.status-chip),
+  .status-chip {
+    min-width: max-content;
+  }
+
+  .app {
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .project-list-header {
+    align-items: flex-start;
+  }
+
+  .project-list-header .btn-primary {
+    min-width: 72px;
+  }
+
+  .phase-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .run-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-messages {
+    padding: 12px;
+  }
+
+  .chat-input-actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .chat-input-actions button {
+    width: 100%;
+  }
+
+  .md-tabs {
+    grid-auto-columns: minmax(100px, 1fr);
+    padding: 8px;
+  }
+
+  .md-tab {
+    min-width: 100px;
+  }
+
+  .md-content h1 {
+    font-size: 21px;
+  }
+
+  .md-content h2 {
+    font-size: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

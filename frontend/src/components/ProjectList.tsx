@@ -64,6 +64,10 @@ export function ProjectList({ activeId, onSelect }: Props) {
         <form className="project-create-form" onSubmit={handleCreate}>
           <input
             autoFocus
+            id="project-name"
+            name="projectName"
+            autoComplete="off"
+            aria-label="项目名"
             placeholder="项目名 (建议 ASCII)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
