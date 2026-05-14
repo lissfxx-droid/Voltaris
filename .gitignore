@@ -5,6 +5,12 @@ __pycache__/
 *.pyo
 
 # SQLite + jlcparts data dump (~27GB, do NOT commit)
+data/*.sqlite
+data/*.sqlite3
+data/*.db
+data/*.sqlite-*
+data/*.sqlite3-*
+data/*.db-*
 backend/data/*.sqlite3
 backend/data/cache.zip
 backend/data/cache.z*
