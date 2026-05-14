@@ -6,6 +6,7 @@ import { MarkdownPreview } from "./components/MarkdownPreview";
 import { PhaseProgress } from "./components/PhaseProgress";
 import { ProjectList } from "./components/ProjectList";
 import { ResizeHandle } from "./components/ResizeHandle";
+import { RunStatusBar } from "./components/RunStatusBar";
 import { useProjectSocket } from "./ws";
 
 const LS_LEFT = "pcb.col.left";
@@ -89,6 +90,15 @@ export function App() {
                 briefContent={briefContent}
                 connected={state.connected}
                 runActive={state.runActive}
+              />
+              <RunStatusBar
+                connected={state.connected}
+                runActive={state.runActive}
+                provider={state.provider}
+                lastSeq={state.lastSeq}
+                lastEvent={state.lastEvent}
+                lastRunId={state.lastRunId}
+                lastRunExitCode={state.lastRunExitCode}
               />
               <ChatPanel
                 projectId={activeId}

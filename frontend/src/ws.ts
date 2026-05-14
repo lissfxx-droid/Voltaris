@@ -30,6 +30,9 @@ interface SocketState {
   connected: boolean;
   provider: AgentProvider | null;
   lastSeq: number;
+  lastEvent: string | null;
+  lastRunId: number | null;
+  lastRunExitCode: number | null;
   // Becomes true after the WS handshake-complete `ws_ready` envelope arrives.
   // Events arriving before that are historical replays; events after are live.
   // We only let *live* events flip runActive=true, so replaying an old
@@ -44,6 +47,9 @@ const EMPTY: SocketState = {
   connected: false,
   provider: null,
   lastSeq: 0,
+  lastEvent: null,
+  lastRunId: null,
+  lastRunExitCode: null,
   replayDone: false,
 };
 
@@ -96,11 +102,13 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       // Everything from here on is live. Replayed events before this point
       // could not flip runActive=true.
       next.replayDone = true;
+      next.lastEvent = "WebSocket ready";
       return next;
 
     case "file_updated": {
       const m = msg as Extract<WSMessage, { type: "file_updated" }>;
       next.files = { ...next.files, [m.path]: m.content };
+      next.lastEvent = `Updated ${m.path}`;
       return next;
     }
 
@@ -108,6 +116,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       const m = msg as Extract<WSMessage, { type: "file_deleted" }>;
       const { [m.path]: _, ...rest } = next.files;
       next.files = rest;
+      next.lastEvent = `Deleted ${m.path}`;
       return next;
     }
 
@@ -123,6 +132,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
           text: m.text,
         },
       ];
+      next.lastEvent = "User input received";
       return next;
     }
 
@@ -131,7 +141,9 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       next.provider = m.provider;
       if (next.replayDone) {
         next.runActive = true;
+        next.lastRunExitCode = null;
       }
+      next.lastEvent = `${m.provider_display || displayName(m.provider)} session started`;
       next.chat = [
         ...next.chat,
         {
@@ -158,6 +170,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
           text: m.text,
         },
       ];
+      next.lastEvent = `${displayName(m.provider || providerFrom(msg) || next.provider)} message`;
       return next;
     }
 
@@ -174,6 +187,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
             provider: m.provider || providerFrom(msg) || next.provider || undefined,
           },
         ];
+        next.lastEvent = `${m.name || "tool"} started`;
       } else {
         next.chat = next.chat.map((it) =>
           it.kind === "tool_use" && (it as ChatToolUseItem).id === m.tool_id
@@ -185,6 +199,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
               }
             : it,
         );
+        next.lastEvent = `${m.name || "tool"} ${m.is_error ? "failed" : "finished"}`;
       }
       return next;
     }
@@ -204,12 +219,16 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
           },
         ];
       }
+      next.lastEvent = m.is_error ? "Run result error" : "Run result ready";
       return next;
     }
 
     case "run_complete": {
       const m = msg as Extract<WSMessage, { type: "run_complete" }>;
       next.runActive = false;
+      next.lastRunId = m.run_id;
+      next.lastRunExitCode = m.exit_code;
+      next.lastEvent = m.exit_code === 0 ? `Run #${m.run_id} completed` : `Run #${m.run_id} failed`;
       next.chat = [
         ...next.chat,
         {
@@ -236,6 +255,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
           text: m.message,
         },
       ];
+      next.lastEvent = m.message;
       return next;
     }
 
@@ -253,6 +273,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
           text: m.message,
         },
       ];
+      next.lastEvent = m.message;
       return next;
     }
 
@@ -261,8 +282,10 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       if (m.subtype === "init") {
         if (next.replayDone) {
           next.runActive = true;
+          next.lastRunExitCode = null;
         }
         next.provider = "claude";
+        next.lastEvent = "Claude session started";
         next.chat = [
           ...next.chat,
           {
@@ -289,6 +312,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
           },
         ];
       }
+      next.lastEvent = m.is_error ? "Run result error" : "Run result ready";
       return next;
     }
   }
@@ -318,6 +342,9 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       // skip "thinking" by default; could surface as collapsed card
     }
     next.chat = [...next.chat, ...newItems];
+    if (newItems.length > 0) {
+      next.lastEvent = "Claude stream update";
+    }
     return next;
   }
 
@@ -337,6 +364,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       }
     }
     next.chat = chat;
+    next.lastEvent = "Tool result received";
     return next;
   }
 
@@ -371,7 +399,7 @@ export function useProjectSocket(projectId: string | null): UseProjectSocket {
       ws = new WebSocket(url);
 
       ws.onopen = () => {
-        setState((s) => ({ ...s, connected: true }));
+        setState((s) => ({ ...s, connected: true, lastEvent: "WebSocket connected" }));
         // The WS itself can't tell us authoritatively whether a run is in
         // progress (init events get replayed; we suppress those). Ask the
         // HTTP API for the canonical `active_run` flag and seed runActive.
@@ -397,7 +425,7 @@ export function useProjectSocket(projectId: string | null): UseProjectSocket {
         }
       };
       ws.onclose = () => {
-        setState((s) => ({ ...s, connected: false }));
+        setState((s) => ({ ...s, connected: false, lastEvent: "WebSocket disconnected" }));
         if (!closed) {
           // Reconnect with backoff so dropped sockets resume.
           setTimeout(open, 2000);

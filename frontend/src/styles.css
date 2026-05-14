@@ -108,6 +108,17 @@ pre {
   margin-top: 4px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* --- Layout ---------------------------------------------------------------- */
 
 .app-shell {
@@ -556,6 +567,102 @@ pre {
 }
 
 /* --- Chat Panel ------------------------------------------------------------ */
+
+.run-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 60px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #d7dfe5;
+  background: #f8fafb;
+}
+
+.run-status-primary {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+
+.run-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #7d8790;
+  box-shadow: 0 0 0 4px rgba(125, 135, 144, 0.12);
+}
+
+.run-pulse.active {
+  background: #15948b;
+  box-shadow: 0 0 0 4px rgba(21, 148, 139, 0.14);
+  animation: runPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes runPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(21, 148, 139, 0.14);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(21, 148, 139, 0.08);
+  }
+}
+
+.run-status-title {
+  color: #202124;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.run-status-detail {
+  max-width: 420px;
+  overflow: hidden;
+  color: #68737d;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-metrics {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.run-metrics div {
+  display: grid;
+  min-width: 70px;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid #d7dfe5;
+  border-radius: 6px;
+  background: white;
+}
+
+.run-metrics dt {
+  color: #68737d;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.run-metrics dd {
+  margin: 0;
+  color: #202124;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.run-metrics .metric-good {
+  color: #22703a;
+}
+
+.run-metrics .metric-bad {
+  color: #a23b2e;
+}
 
 .chat-panel {
   flex: 1;
