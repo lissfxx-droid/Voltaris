@@ -1,6 +1,6 @@
 # backend/data/
 
-存放 jlcparts 元件库 SQLite 数据库。**不进 git**（见 `pcb-system/.gitignore`）。
+存放 jlcparts 元件库 SQLite 数据库。**不进 git**（见 `Voltaris/.gitignore`）。
 
 ## cache.sqlite3
 
