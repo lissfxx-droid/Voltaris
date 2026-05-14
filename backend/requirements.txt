@@ -1,0 +1,6 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+aiosqlite>=0.20
+watchfiles>=0.24
+pydantic>=2.9
+python-multipart>=0.0.12

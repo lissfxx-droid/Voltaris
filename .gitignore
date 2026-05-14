@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# SQLite + jlcparts data dump (~27GB, do NOT commit)
+backend/data/*.sqlite3
+backend/data/cache.zip
+backend/data/cache.z*
+
+# Project workdirs (each project has its own .git)
+projects/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Editor
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/ws.ts","./src/components/ChatPanel.tsx","./src/components/MarkdownPreview.tsx","./src/components/PhaseProgress.tsx","./src/components/ProjectList.tsx","./src/components/ResizeHandle.tsx"],"version":"5.9.3"}

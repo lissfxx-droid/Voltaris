@@ -1,0 +1,282 @@
+# ============================================================
+# CircuitIR — Deterministic output (CircuitIR.md v1.0)
+# Source: P1 (G431 brushed DC motor driver)
+# ============================================================
+
+schema_version: "1.0"
+
+project:
+  name: G431-Motor-Driver
+  revision: A
+
+# ============================================================
+# parts — every entry MUST have lcsc or mpn
+# ============================================================
+parts:
+  # MCU
+  U7:    { lcsc: C529355,   value: STM32G431CBT6 }
+  X1:    { lcsc: C2682774,  value: 8MHz }
+
+  # 12V→5V Buck (MP2315)
+  U4:    { lcsc: C45889,    value: MP2315GJ-Z }
+  L1:    { lcsc: C177246,   value: 4.7uH }
+
+  # 5V→3.3V LDO (RT9193)
+  U3:    { lcsc: C15651,    value: RT9193-33GB }
+
+  # Motor driver (DRV8874)
+  U2:    { lcsc: C1855818,  value: DRV8874PWPR }
+
+  # CAN transceiver + ESD
+  U5:    { lcsc: C38695,    value: TJA1051T/3 }
+  D1:    { lcsc: C39832198, value: PESD2CANFD24V }
+
+  # Connectors
+  CN1:   { lcsc: C22438287, value: HX-PZ2.0-1x4P }
+  CN2:   { lcsc: C5359605,  value: WAFER-PH2.0-8P }
+  CN3:   { lcsc: C22438286, value: HX-PZ2.0-1x3P }
+  U1:    { lcsc: C5359603,  value: WAFER-PH2.0-6P }
+
+  # Reset button
+  RESET: { lcsc: C720477,   value: TS-1088-AR02016 }
+
+  # LEDs
+  LED1:  { lcsc: C2286,     value: KT-0603R }
+  LED2:  { lcsc: C72038,    value: 19-213-Y2C }
+
+  # Resistors
+  R1:    { lcsc: C2906982,  value: 10kΩ }
+  R2:    { lcsc: C2906982,  value: 10kΩ }
+  R3:    { lcsc: C2906982,  value: 10kΩ }
+  R4:    { lcsc: C22975,    value: 2kΩ }
+  R5:    { lcsc: C2906982,  value: 10kΩ }
+  R6:    { lcsc: C105588,   value: 100Ω }
+  R7:    { lcsc: C105588,   value: 100Ω }
+  R8:    { lcsc: C22975,    value: 2kΩ }
+  R9:    { lcsc: C22975,    value: 2kΩ }
+  R10:   { lcsc: C21190,    value: 1kΩ }
+  R11:   { lcsc: C22978,    value: 3.3kΩ }
+  R12:   { lcsc: C22978,    value: 3.3kΩ }
+  R13:   { lcsc: C2906982,  value: 10kΩ }
+  R14:   { lcsc: C105588,   value: 100Ω }
+  R15:   { lcsc: C22787,    value: 120Ω }
+  R16:   { lcsc: C105588,   value: 100Ω }
+  R17:   { lcsc: C105588,   value: 100Ω }
+  R18:   { lcsc: C21190,    value: 1kΩ }
+  R19:   { lcsc: C2906982,  value: 10kΩ }
+  R20:   { lcsc: C25803,    value: 100kΩ }
+  R21:   { lcsc: C25803,    value: 100kΩ }
+  R22:   { lcsc: C2907049,  value: 51kΩ }
+  R23:   { lcsc: C2906982,  value: 10kΩ }
+  R24:   { lcsc: C109318,   value: 10Ω }
+  R25:   { lcsc: C21189,    value: 0Ω }
+
+  # Capacitors
+  C1:    { lcsc: C1648,     value: 20pF }
+  C2:    { lcsc: C1648,     value: 20pF }
+  C3:    { lcsc: C6119867,  value: 100nF }
+  C4:    { lcsc: C6119867,  value: 100nF }
+  C5:    { lcsc: C6119867,  value: 100nF }
+  C6:    { lcsc: C6119867,  value: 100nF }
+  C7:    { lcsc: C72478,    value: 100uF }
+  C8:    { lcsc: C1588,     value: 1nF }
+  C9:    { lcsc: C6119867,  value: 100nF }
+  C10:   { lcsc: C6119867,  value: 100nF }
+  C11:   { lcsc: C6119867,  value: 100nF }
+  C12:   { lcsc: C6119842,  value: 10uF }
+  C13:   { lcsc: C6119867,  value: 100nF }
+  C14:   { lcsc: C6119852,  value: 1uF }
+  C15:   { lcsc: C6119867,  value: 100nF }
+  C16:   { lcsc: C6119863,  value: 22uF }
+  C17:   { lcsc: C6119863,  value: 22uF }
+  C18:   { lcsc: C100042,   value: 10nF }
+  C19:   { lcsc: C6119852,  value: 1uF }
+  C20:   { lcsc: C6119852,  value: 1uF }
+  C21:   { lcsc: C6119852,  value: 1uF }
+  C22:   { lcsc: C6119867,  value: 100nF }
+
+
+# ============================================================
+# nets — every connection explicitly listed; GND not omitted
+# ============================================================
+nets:
+
+  GND:
+    - CN1.1
+    - CN2.2
+    - CN3.1
+    - U1.2
+    - U7.VSS
+    - U2.GND
+    - U2.PGND
+    - U2.EP
+    - U2.PMODE
+    - U3.GND
+    - U4.GND
+    - U5.GND
+    - U5.S
+    - X1.GND
+    - RESET.2
+    - D1.2
+    - C1.1
+    - C2.2
+    - C3.2
+    - C6.2
+    - C7.1
+    - C8.2
+    - C9.2
+    - C10.2
+    - C11.1
+    - C12.1
+    - C13.1
+    - C14.2
+    - C16.1
+    - C17.2
+    - C18.2
+    - C19.2
+    - C20.1
+    - C21.2
+    - C22.2
+    - R2.1
+    - R3.1
+    - R4.1
+    - R11.1
+    - R12.2
+    - R19.2
+    - R21.1
+    - R23.2
+    - R25.1
+
+  VSSA:
+    - U7.VSSA
+    - R25.2
+
+  PWR_12V:
+    - CN2.1
+    - U4.IN
+    - C6.1
+    - C7.2
+    - C12.2
+    - C13.2
+    - R20.2
+
+  SW_NODE:
+    - U4.SW
+    - L1.1
+    - C15.2
+
+  PWR_5V:
+    - L1.2
+    - C16.2
+    - C17.1
+    - C20.2
+    - U3.VIN
+    - U3.EN
+    - U5.VCC
+    - C10.1
+    - R22.2
+    - U1.5
+    - LED1.A
+
+  PWR_3V3:
+    - U3.VOUT
+    - U7.VDD
+    - U7.VBAT
+    - C11.2
+    - C19.1
+    - R1.2
+    - R5.1
+    - R24.1
+    - U2.VREF
+    - U5.VIO
+    - CN1.4
+    - CN3.3
+
+  VDDA:
+    - R24.2
+    - U7.VDDA
+    - U7.VREF+
+    - C21.1
+    - C22.1
+
+  BUCK_EN:    [U4.EN/SYNC, R20.1]
+  BUCK_AAM:   [U4.AAM,  R21.2]
+  BUCK_BST:   [U4.BST,  C15.1]
+  BUCK_VCC:   [U4.VCC,  C14.1]
+  BUCK_FB:    [U4.FB,   R22.1, R23.1]
+
+  LDO_BP:     [U3.BP,   C18.1]
+
+  OSC_IN:     [U7.PF0-OSC_IN,  X1.1, C1.2]
+  OSC_OUT:    [U7.PF1-OSC_OUT, X1.3, C2.1]
+
+  NRST:       [U7.PG10-NRST, R1.1, RESET.1, C3.1]
+  BOOT:       [CN3.2, R13.2]
+
+  CAN_H:      [U5.CANH, R15.2, D1.1, CN2.4]
+  CAN_L:      [U5.CANL, R15.1, D1.3, CN2.3]
+  CAN_TX:     [U7.PA12, U5.TXD]
+  CAN_RX:     [U7.PA11, U5.RXD]
+
+  USART3_TX:  [U7.PB10, R14.1]
+  USART3_RX:  [U7.PB11, R16.1]
+  USART3_TX_OUT: [R14.2, CN2.5]
+  USART3_RX_IN:  [R16.2, CN2.6]
+
+  SWDIO:      [U7.PA13, CN1.3]
+  SWCLK:      [U7.PA14, CN1.2]
+
+  MOTOR_PWM:        [U7.PA4,  R6.1]
+  MOTOR_DIR:        [U7.PB2,  R7.1]
+  MOTOR_EN_IN1:     [U2.EN/IN1, R6.2]
+  MOTOR_PH_IN2:     [U2.PH/IN2, R7.2]
+  MOTOR_IMODE:      [U2.IMODE, U7.PA5]
+  MOTOR_NSLEEP:     [U2.nSLEEP, R18.1, R19.1, C9.1]
+  MOTOR_NSLEEP_OUT: [R18.2, CN2.8]
+  MOTOR_NFAULT:     [U2.nFAULT, R5.2, R17.1]
+  MOTOR_NFAULT_OUT: [R17.2, CN2.7]
+  MOTOR_IPROPI:     [U2.IPROPI, R4.2, R10.2]
+  MOTOR_IADC:       [R10.1, C8.1, U7.PA7]
+  MOTOR_VM:         [U2.VM,  C5.1]
+  MOTOR_VCP:        [U2.VCP, C5.2]
+  MOTOR_CPH:        [U2.CPH, C4.2]
+  MOTOR_CPL:        [U2.CPL, C4.1]
+  MOTOR_OUT1:       [U2.OUT1, U1.1, R8.1, R11.2]
+  MOTOR_OUT2:       [U2.OUT2, U1.6, R9.1, R12.1]
+  HALL_OUT1_DIV:    [R8.2, U1.3]
+  HALL_OUT2_DIV:    [R9.2, U1.4]
+
+  LED1_K:           [LED1.K, R2.2]
+  MOTOR_SIGN:       [U7.PB7, LED2.A]
+  LED2_K:           [LED2.K, R3.2]
+
+
+# ============================================================
+# modules — schematic sheet grouping (optional)
+# ============================================================
+modules:
+  power_input:   { parts: [CN2, C6, C7] }
+  buck_5v:       { parts: [U4, L1, C12, C13, C14, C15, C16, C17, R20, R21, R22, R23] }
+  ldo_3v3:       { parts: [U3, C18, C19, C20] }
+  vdda_filter:   { parts: [R24, R25, C21, C22] }
+  mcu_core:      { parts: [U7, X1, C1, C2, R1, C3, RESET, R13, CN3] }
+  motor_drive:   { parts: [U2, R4, R5, R6, R7, R8, R9, R10, R11, R12, R17, R18, R19,
+                           C4, C5, C8, C9, U1, LED2, R3] }
+  can_node:      { parts: [U5, D1, R14, R15, R16, C10, C11, CN2] }
+  swd_debug:     { parts: [CN1] }
+  status_leds:   { parts: [LED1, R2] }
+
+
+# ============================================================
+# buses — bus labels in schematic (optional)
+# ============================================================
+buses:
+  CAN1:
+    type: can
+    signals: { h: CAN_H, l: CAN_L, tx: CAN_TX, rx: CAN_RX }
+  USART3:
+    type: uart
+    signals: { tx: USART3_TX, rx: USART3_RX }
+  SWD:
+    type: swd
+    signals: { swdio: SWDIO, swclk: SWCLK, nrst: NRST }
