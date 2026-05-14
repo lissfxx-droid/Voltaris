@@ -54,15 +54,13 @@ async def _run(*cmd: str, cwd: Path) -> tuple[int, str]:
 
 
 def sync_prompts(workdir: Path) -> None:
-    """Copy latest orchestrator + subagents into the project workdir.
+    """Copy latest provider-specific prompts into the project workdir.
 
     Called every time a run starts, so the latest prompt versions are always used.
     """
-    shutil.copy(PROMPTS_DIR / "orchestrator.md", workdir / "CLAUDE.md")
-    agents_dst = workdir / ".claude" / "agents"
-    agents_dst.mkdir(parents=True, exist_ok=True)
-    for f in (PROMPTS_DIR / "agents").glob("*.md"):
-        shutil.copy(f, agents_dst / f.name)
+    from .providers import get_provider
+
+    get_provider().prepare_workdir(workdir)
 
 
 async def create_project(name: str) -> dict[str, Any]:
@@ -124,7 +122,7 @@ async def list_files(project_id: str) -> list[dict[str, Any]]:
 
 async def read_file(project_id: str, fname: str) -> str | None:
     # Restrict reads to known files only (no path traversal).
-    allowed = {"00_project_brief.md", "CLAUDE.md", *PHASE_FILES}
+    allowed = {"00_project_brief.md", "CLAUDE.md", "AGENTS.md", *PHASE_FILES}
     if fname not in allowed:
         return None
     p = project_workdir(project_id) / fname

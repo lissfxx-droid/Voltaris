@@ -12,12 +12,14 @@ import { useEffect, useRef, useState } from "react";
 
 import { api } from "./api";
 import type {
+  AgentMessage,
+  AgentProvider,
+  AgentResult,
+  AgentSession,
+  AgentSystem,
+  AgentTool,
   ChatItem,
   ChatToolUseItem,
-  ClaudeAssistant,
-  ClaudeContentBlock,
-  ClaudeToolResult,
-  ClaudeUser,
   WSMessage,
 } from "./types";
 
@@ -26,6 +28,7 @@ interface SocketState {
   files: Record<string, string>;
   runActive: boolean;
   connected: boolean;
+  provider: AgentProvider | null;
   lastSeq: number;
   // Becomes true after the WS handshake-complete `ws_ready` envelope arrives.
   // Events arriving before that are historical replays; events after are live.
@@ -39,22 +42,46 @@ const EMPTY: SocketState = {
   files: {},
   runActive: false,
   connected: false,
+  provider: null,
   lastSeq: 0,
   replayDone: false,
 };
 
-function isClaudeAssistant(m: WSMessage): m is ClaudeAssistant {
-  return m.type === "assistant" && typeof (m as ClaudeAssistant).message === "object";
+function displayName(provider?: AgentProvider | null): string {
+  if (provider === "codex") return "Codex";
+  if (provider === "claude") return "Claude";
+  return "Agent";
 }
 
-function isClaudeUser(m: WSMessage): m is ClaudeUser {
-  return m.type === "user" && typeof (m as ClaudeUser).message === "object";
+function providerFrom(msg: WSMessage): AgentProvider | undefined {
+  const provider = (msg as { provider?: unknown }).provider;
+  return typeof provider === "string" ? provider : undefined;
 }
 
-function toolResultText(c: ClaudeToolResult["content"]): string {
+function messageContent(msg: WSMessage): unknown[] {
+  const message = (msg as { message?: unknown }).message;
+  if (
+    typeof message !== "object" ||
+    message === null ||
+    !Array.isArray((message as { content?: unknown }).content)
+  ) {
+    return [];
+  }
+  return (message as { content: unknown[] }).content;
+}
+
+function toolResultText(c: unknown): string {
   if (typeof c === "string") return c;
+  if (!Array.isArray(c)) return JSON.stringify(c);
   return c
-    .map((b) => (b.type === "text" && b.text ? b.text : JSON.stringify(b)))
+    .map((b) =>
+      typeof b === "object" &&
+      b !== null &&
+      (b as { type?: unknown }).type === "text" &&
+      typeof (b as { text?: unknown }).text === "string"
+        ? (b as { text: string }).text
+        : JSON.stringify(b),
+    )
     .join("\n");
 }
 
@@ -99,42 +126,81 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       return next;
     }
 
-    case "system": {
-      // Claude session init / final result envelopes — we surface init only.
-      const m = msg as { type: "system"; subtype?: string; session_id?: string };
-      if (m.subtype === "init") {
-        // Only flip runActive=true for *live* events. A replayed init from
-        // a long-dead run would otherwise resurrect runActive forever (its
-        // matching run_complete is also replayed, but later message ordering
-        // can leave a stale active state).
-        if (next.replayDone) {
-          next.runActive = true;
-        }
+    case "agent_session": {
+      const m = msg as AgentSession;
+      next.provider = m.provider;
+      if (next.replayDone) {
+        next.runActive = true;
+      }
+      next.chat = [
+        ...next.chat,
+        {
+          kind: "system",
+          id: `sys-${seq}`,
+          level: "info",
+          text: `${m.provider_display || displayName(m.provider)} session started${
+            m.session_id ? ` (${m.session_id.slice(0, 8)})` : ""
+          }`,
+        },
+      ];
+      return next;
+    }
+
+    case "agent_message": {
+      const m = msg as AgentMessage;
+      next.chat = [
+        ...next.chat,
+        {
+          kind: "text",
+          id: `a-${seq}`,
+          role: "assistant",
+          provider: m.provider || providerFrom(msg) || next.provider || undefined,
+          text: m.text,
+        },
+      ];
+      return next;
+    }
+
+    case "agent_tool": {
+      const m = msg as AgentTool;
+      if (m.phase === "started") {
         next.chat = [
           ...next.chat,
           {
-            kind: "system",
-            id: `sys-${seq}`,
-            level: "info",
-            text: `Claude session started${m.session_id ? ` (${m.session_id.slice(0, 8)})` : ""}`,
+            kind: "tool_use",
+            id: m.tool_id,
+            name: m.name || "tool",
+            input: m.input ?? {},
+            provider: m.provider || providerFrom(msg) || next.provider || undefined,
           },
         ];
+      } else {
+        next.chat = next.chat.map((it) =>
+          it.kind === "tool_use" && (it as ChatToolUseItem).id === m.tool_id
+            ? {
+                ...it,
+                result: m.result ?? "",
+                isError: !!m.is_error,
+                provider: m.provider || (it as ChatToolUseItem).provider,
+              }
+            : it,
+        );
       }
       return next;
     }
 
-    case "result": {
-      // End-of-run summary from Claude. Show as a styled card (rendered as
+    case "agent_result": {
+      // End-of-run summary from the provider. Show as a styled card (rendered as
       // markdown by ChatPanel) so the formatted final summary is readable.
-      const m = msg as { type: "result"; result?: string; is_error?: boolean };
-      if (m.result) {
+      const m = msg as AgentResult;
+      if (m.text) {
         next.chat = [
           ...next.chat,
           {
             kind: "system",
             id: `result-${seq}`,
             level: m.is_error ? "error" : "success",
-            text: m.result,
+            text: m.text,
           },
         ];
       }
@@ -159,6 +225,22 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       return next;
     }
 
+    case "agent_system": {
+      const m = msg as AgentSystem;
+      next.chat = [
+        ...next.chat,
+        {
+          kind: "system",
+          id: `s-${seq}`,
+          level: m.level,
+          text: m.message,
+        },
+      ];
+      return next;
+    }
+
+    // Backward compatibility for messages persisted before provider
+    // normalization was introduced.
     case "system_error":
     case "system_warning": {
       const m = msg as { type: string; message: string };
@@ -173,26 +255,64 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
       ];
       return next;
     }
+
+    case "system": {
+      const m = msg as { type: "system"; subtype?: string; session_id?: string };
+      if (m.subtype === "init") {
+        if (next.replayDone) {
+          next.runActive = true;
+        }
+        next.provider = "claude";
+        next.chat = [
+          ...next.chat,
+          {
+            kind: "system",
+            id: `sys-${seq}`,
+            level: "info",
+            text: `Claude session started${m.session_id ? ` (${m.session_id.slice(0, 8)})` : ""}`,
+          },
+        ];
+      }
+      return next;
+    }
+
+    case "result": {
+      const m = msg as { type: "result"; result?: string; is_error?: boolean };
+      if (m.result) {
+        next.chat = [
+          ...next.chat,
+          {
+            kind: "system",
+            id: `result-${seq}`,
+            level: m.is_error ? "error" : "success",
+            text: m.result,
+          },
+        ];
+      }
+      return next;
+    }
   }
 
-  if (isClaudeAssistant(msg)) {
+  if (msg.type === "assistant" && typeof (msg as { message?: unknown }).message === "object") {
+    const content = messageContent(msg);
     const newItems: ChatItem[] = [];
-    for (const [i, block] of msg.message.content.entries()) {
-      const b = block as ClaudeContentBlock;
-      if (b.type === "text" && typeof (b as { text?: string }).text === "string") {
+    for (const [i, block] of content.entries()) {
+      const b = block as { type?: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> };
+      if (b.type === "text" && typeof b.text === "string") {
         newItems.push({
           kind: "text",
           id: `a-${seq}-${i}`,
           role: "assistant",
-          text: (b as { text: string }).text,
+          provider: "claude",
+          text: b.text,
         });
       } else if (b.type === "tool_use") {
-        const tu = b as { id: string; name: string; input: Record<string, unknown> };
         newItems.push({
           kind: "tool_use",
-          id: tu.id,
-          name: tu.name,
-          input: tu.input ?? {},
+          id: b.id || `tool-${seq}-${i}`,
+          name: b.name || "tool",
+          input: b.input ?? {},
+          provider: "claude",
         });
       }
       // skip "thinking" by default; could surface as collapsed card
@@ -201,11 +321,12 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
     return next;
   }
 
-  if (isClaudeUser(msg)) {
+  if (msg.type === "user" && typeof (msg as { message?: unknown }).message === "object") {
     // Match tool_results back to existing tool_use cards by tool_use_id.
+    const content = messageContent(msg);
     let chat = next.chat;
-    for (const block of msg.message.content) {
-      const b = block as ClaudeToolResult & { type: string };
+    for (const block of content) {
+      const b = block as { type?: string; tool_use_id?: string; content?: unknown; is_error?: boolean };
       if (b.type === "tool_result") {
         const text = toolResultText(b.content);
         chat = chat.map((it) =>
@@ -257,7 +378,11 @@ export function useProjectSocket(projectId: string | null): UseProjectSocket {
         api
           .getProject(projectId)
           .then((p) => {
-            setState((s) => ({ ...s, runActive: p.active_run }));
+            setState((s) => ({
+              ...s,
+              runActive: p.active_run,
+              provider: p.agent_provider,
+            }));
           })
           .catch(() => {
             /* project may have been deleted; ignore */

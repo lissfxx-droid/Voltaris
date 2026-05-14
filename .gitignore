@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
 
 # SQLite + jlcparts data dump (~27GB, do NOT commit)
 data/*.sqlite

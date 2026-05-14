@@ -16,6 +16,7 @@ export interface FileMeta {
 export interface ProjectDetail extends Project {
   files: FileMeta[];
   active_run: boolean;
+  agent_provider: AgentProvider;
 }
 
 export interface RunRecord {
@@ -61,68 +62,49 @@ export interface SystemWarning {
   message: string;
 }
 
-// Claude Code stream-json shape (from `claude --output-format stream-json`)
-export interface ClaudeSystemInit {
-  type: "system";
-  subtype?: string;
-  [k: string]: unknown;
+export type AgentProvider = "claude" | "codex" | string;
+
+export interface AgentSession {
+  type: "agent_session";
+  phase: "started";
+  provider: AgentProvider;
+  provider_display?: string;
+  session_id?: string;
 }
 
-export interface ClaudeAssistantText {
-  type: "text";
+export interface AgentMessage {
+  type: "agent_message";
   text: string;
+  provider?: AgentProvider;
 }
 
-export interface ClaudeAssistantToolUse {
-  type: "tool_use";
-  id: string;
-  name: string;
-  input: Record<string, unknown>;
-}
-
-export interface ClaudeAssistantThinking {
-  type: "thinking";
-  thinking: string;
-}
-
-export type ClaudeContentBlock =
-  | ClaudeAssistantText
-  | ClaudeAssistantToolUse
-  | ClaudeAssistantThinking
-  | { type: string; [k: string]: unknown };
-
-export interface ClaudeAssistant {
-  type: "assistant";
-  message: {
-    content: ClaudeContentBlock[];
-    [k: string]: unknown;
-  };
-  [k: string]: unknown;
-}
-
-export interface ClaudeToolResult {
-  type: "tool_result";
-  tool_use_id: string;
-  content: string | Array<{ type: string; text?: string }>;
+export interface AgentTool {
+  type: "agent_tool";
+  phase: "started" | "finished";
+  tool_id: string;
+  name?: string;
+  input?: Record<string, unknown>;
+  result?: string;
   is_error?: boolean;
+  provider?: AgentProvider;
 }
 
-export interface ClaudeUser {
-  type: "user";
-  message: {
-    content: (ClaudeToolResult | { type: string; [k: string]: unknown })[];
-    [k: string]: unknown;
-  };
-  [k: string]: unknown;
+export interface AgentResult {
+  type: "agent_result";
+  text: string;
+  is_error?: boolean;
+  provider?: AgentProvider;
 }
 
-export interface ClaudeResult {
-  type: "result";
-  [k: string]: unknown;
+export interface AgentSystem {
+  type: "agent_system";
+  level: "info" | "warning" | "error" | "success";
+  message: string;
+  provider?: AgentProvider;
 }
 
 export interface RawLine {
-  type: "raw";
+  type: "agent_raw";
   channel: string;
   text: string;
 }
@@ -134,10 +116,11 @@ export type WSMessage =
   | RunComplete
   | SystemError
   | SystemWarning
-  | ClaudeSystemInit
-  | ClaudeAssistant
-  | ClaudeUser
-  | ClaudeResult
+  | AgentSession
+  | AgentMessage
+  | AgentTool
+  | AgentResult
+  | AgentSystem
   | RawLine
   | { type: string; seq?: number; [k: string]: unknown };
 
@@ -164,6 +147,7 @@ export interface ChatTextItem {
   id: string;
   role: "assistant";
   text: string;
+  provider?: AgentProvider;
 }
 
 export interface ChatToolUseItem {
@@ -173,6 +157,7 @@ export interface ChatToolUseItem {
   input: Record<string, unknown>;
   result?: string;
   isError?: boolean;
+  provider?: AgentProvider;
 }
 
 export interface ChatSystemItem {

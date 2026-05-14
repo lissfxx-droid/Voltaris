@@ -1,28 +1,24 @@
-"""Run claude as a subprocess, parse stream-json line by line, fan out to subscribers."""
+"""Run an AI CLI provider, persist normalized events, and fan out to subscribers."""
 
 from __future__ import annotations
 
 import asyncio
-import json
-import os
 import shutil
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 from . import db, projects
+from .providers import AgentRuntime, get_provider
 
 EventCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
-def _claude_bin() -> str:
-    return os.environ.get("CLAUDE_BIN", "claude") or "claude"
-
-
 class RunHandle:
-    """Tracks a single in-flight Claude run for one project."""
+    """Tracks a single in-flight provider run for one project."""
 
-    def __init__(self, project_id: str, run_id: int) -> None:
+    def __init__(self, project_id: str, run_id: int, provider: AgentRuntime) -> None:
         self.project_id = project_id
         self.run_id = run_id
+        self.provider = provider
         # Kept for backwards compatibility but no longer the source of truth;
         # all events fan out via the project-level subscribers map below.
         self.subscribers: set[EventCallback] = set()
@@ -46,9 +42,9 @@ class RunHandle:
                 self.subscribers.discard(cb)
 
     async def cancel(self) -> None:
-        """Interrupt the running Claude subprocess.
+        """Interrupt the running provider subprocess.
 
-        Tries SIGTERM first to let Claude flush state; escalates to SIGKILL
+        Tries SIGTERM first to let the CLI flush state; escalates to SIGKILL
         after 3s. Safe to call multiple times.
         """
         self.cancelled = True
@@ -101,7 +97,7 @@ def get_active(project_id: str) -> RunHandle | None:
 
 
 async def start_run(project_id: str, user_message: str) -> RunHandle:
-    """Start a Claude run for the project. Returns immediately with a RunHandle.
+    """Start a provider run for the project. Returns immediately with a RunHandle.
 
     Refuses to start if a run is already active for this project.
     """
@@ -118,11 +114,13 @@ async def start_run(project_id: str, user_message: str) -> RunHandle:
         if not workdir.exists():
             raise FileNotFoundError(f"project workdir missing: {workdir}")
 
-        # Always sync the latest prompts before each run.
-        projects.sync_prompts(workdir)
+        provider = get_provider()
+
+        # Always sync the latest provider-specific prompts before each run.
+        provider.prepare_workdir(workdir)
 
         run_id = await db.create_run(project_id, user_message)
-        handle = RunHandle(project_id, run_id)
+        handle = RunHandle(project_id, run_id, provider)
         _active[project_id] = handle
 
     # Fire and forget — the actual subprocess loop runs in the background.
@@ -133,45 +131,61 @@ async def start_run(project_id: str, user_message: str) -> RunHandle:
 async def _run_loop(handle: RunHandle, user_message: str) -> None:
     project_id = handle.project_id
     workdir = projects.project_workdir(project_id)
+    provider = handle.provider
     # seq is project-wide and monotonic. Continue from the last persisted
     # seq so cross-run ordering (sort by seq) stays correct.
     seq = await db.get_max_seq(project_id)
     rc: int = -1
 
+    async def _emit(event: dict[str, Any], *, persist: bool = True) -> None:
+        nonlocal seq
+        seq += 1
+        event["seq"] = seq
+        event["run_id"] = handle.run_id
+        event.setdefault("provider", provider.name)
+        if persist:
+            await db.insert_message(project_id, handle.run_id, seq, event)
+        await handle.fanout(event)
+
+    async def _emit_many(events: list[dict[str, Any]], *, persist: bool = True) -> None:
+        for event in events:
+            if event.get("type") == "agent_batch":
+                nested = event.get("events")
+                if isinstance(nested, list):
+                    await _emit_many(
+                        [e for e in nested if isinstance(e, dict)],
+                        persist=persist,
+                    )
+                continue
+            await _emit(event, persist=persist)
+
     try:
         # Persist + broadcast the user's input as the first message of this
         # run, so the chat UI shows what the user actually said and so a
         # page-refresh replay still includes it.
-        seq += 1
         user_event = {
             "type": "user_input",
             "text": user_message,
-            "run_id": handle.run_id,
-            "seq": seq,
+            "provider": provider.name,
         }
-        await db.insert_message(project_id, handle.run_id, seq, user_event)
-        await handle.fanout(user_event)
+        await _emit(user_event)
 
-        if not shutil.which(_claude_bin()):
-            await handle.fanout(
+        command = provider.build_command(user_message, workdir)
+        if not shutil.which(command.argv[0]):
+            await _emit(
                 {
-                    "type": "system_error",
-                    "message": f"claude binary not found ({_claude_bin()}). "
-                    f"set CLAUDE_BIN env var or install Claude Code.",
+                    "type": "agent_system",
+                    "level": "error",
+                    "message": provider.missing_binary_message(),
                 }
             )
             rc = 127
             return
 
         proc = await asyncio.create_subprocess_exec(
-            _claude_bin(),
-            "-p",
-            user_message,
-            "--output-format",
-            "stream-json",
-            "--verbose",
-            "--dangerously-skip-permissions",
-            cwd=str(workdir),
+            *command.argv,
+            cwd=str(command.cwd),
+            env=command.env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -183,15 +197,8 @@ async def _run_loop(handle: RunHandle, user_message: str) -> None:
                 line = raw.decode(errors="replace").rstrip("\n")
                 if not line:
                     continue
-                try:
-                    payload = json.loads(line)
-                except json.JSONDecodeError:
-                    payload = {"type": "raw", "channel": channel, "text": line}
-                seq += 1
-                payload["seq"] = seq
-                payload["run_id"] = handle.run_id
-                await db.insert_message(project_id, handle.run_id, seq, payload)
-                await handle.fanout(payload)
+                for parsed in provider.parse_line(line, channel):
+                    await _emit_many([parsed.event], persist=parsed.persist)
 
         assert proc.stdout is not None and proc.stderr is not None
         await asyncio.gather(
@@ -207,11 +214,21 @@ async def _run_loop(handle: RunHandle, user_message: str) -> None:
                 f"run {handle.run_id}: {user_message[:60]}",
             )
         except Exception as e:
-            await handle.fanout({"type": "system_warning", "message": f"git commit failed: {e}"})
+            await _emit(
+                {
+                    "type": "agent_system",
+                    "level": "warning",
+                    "message": f"git commit failed: {e}",
+                }
+            )
 
     except Exception as e:
-        await handle.fanout(
-            {"type": "system_error", "message": f"runner crashed: {e!r}"}
+        await _emit(
+            {
+                "type": "agent_system",
+                "level": "error",
+                "message": f"runner crashed: {e!r}",
+            }
         )
         rc = -1
 
@@ -222,8 +239,12 @@ async def _run_loop(handle: RunHandle, user_message: str) -> None:
         _active.pop(project_id, None)
         if handle.cancelled:
             try:
-                await handle.fanout(
-                    {"type": "system_warning", "message": "Run 已被用户中断"}
+                await _emit(
+                    {
+                        "type": "agent_system",
+                        "level": "warning",
+                        "message": "Run 已被用户中断",
+                    }
                 )
             except Exception:
                 pass
@@ -232,9 +253,7 @@ async def _run_loop(handle: RunHandle, user_message: str) -> None:
         except Exception:
             pass
         try:
-            await handle.fanout(
-                {"type": "run_complete", "run_id": handle.run_id, "exit_code": rc}
-            )
+            await _emit({"type": "run_complete", "exit_code": rc})
         except Exception:
             pass
         handle.done.set()
