@@ -105,6 +105,7 @@ export function App() {
                 chat={state.chat}
                 runActive={state.runActive}
                 connected={state.connected}
+                configuredProvider={state.configuredProvider}
               />
             </>
           ) : (

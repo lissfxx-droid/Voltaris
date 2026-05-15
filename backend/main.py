@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,6 +38,7 @@ class CreateProjectIn(BaseModel):
 
 class StartRunIn(BaseModel):
     message: str
+    agent_provider: Literal["claude", "codex"] | None = None
 
 
 # --- Routes --------------------------------------------------------------------
@@ -63,9 +65,10 @@ async def get_project_detail(project_id: str):
     proj = await projects.get_project(project_id)
     if not proj:
         raise HTTPException(404, "project not found")
+    active = runner.get_active(project_id)
     proj["files"] = await projects.list_files(project_id)
-    proj["active_run"] = bool(runner.get_active(project_id))
-    proj["agent_provider"] = selected_provider_name()
+    proj["active_run"] = bool(active)
+    proj["agent_provider"] = active.provider.name if active else selected_provider_name()
     return proj
 
 
@@ -95,9 +98,11 @@ async def get_runs(project_id: str):
 @app.post("/projects/{project_id}/runs", status_code=202)
 async def start_run(project_id: str, body: StartRunIn):
     try:
-        handle = await runner.start_run(project_id, body.message)
+        handle = await runner.start_run(project_id, body.message, body.agent_provider)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except RuntimeError as e:
         raise HTTPException(409, str(e))
     return {

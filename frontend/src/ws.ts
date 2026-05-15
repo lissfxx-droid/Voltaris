@@ -29,6 +29,7 @@ interface SocketState {
   runActive: boolean;
   connected: boolean;
   provider: AgentProvider | null;
+  configuredProvider: AgentProvider | null;
   lastSeq: number;
   lastEvent: string | null;
   lastRunId: number | null;
@@ -46,6 +47,7 @@ const EMPTY: SocketState = {
   runActive: false,
   connected: false,
   provider: null,
+  configuredProvider: null,
   lastSeq: 0,
   lastEvent: null,
   lastRunId: null,
@@ -410,6 +412,7 @@ export function useProjectSocket(projectId: string | null): UseProjectSocket {
               ...s,
               runActive: p.active_run,
               provider: p.agent_provider,
+              configuredProvider: p.agent_provider,
             }));
           })
           .catch(() => {
