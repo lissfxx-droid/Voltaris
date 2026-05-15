@@ -1,4 +1,4 @@
-"""Watch a project workdir and emit `file_updated` events for *.md changes."""
+"""Watch a project workdir and emit `file_updated` events for artifact changes."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from watchfiles import Change, awatch
 from . import projects
 
 EventCallback = Callable[[dict[str, Any]], Awaitable[None]]
+WATCHED_SUFFIXES = {".md", ".yaml", ".yml"}
 
 # project_id → (set of subscribers, watcher task)
 _subs: dict[str, set[EventCallback]] = {}
@@ -25,7 +26,7 @@ async def _watch_project(project_id: str) -> None:
     async for changes in awatch(str(workdir), stop_event=stop, recursive=False):
         for change_type, path_str in changes:
             p = Path(path_str)
-            if p.suffix != ".md":
+            if p.suffix not in WATCHED_SUFFIXES:
                 continue
             if change_type == Change.deleted:
                 event = {"type": "file_deleted", "path": p.name}

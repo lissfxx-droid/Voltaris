@@ -42,6 +42,15 @@ export const api = {
       `/projects/${encodeURIComponent(id)}/files/${encodeURIComponent(fname)}`,
     ),
 
+  saveFile: (id: string, fname: string, content: string) =>
+    http<{ name: string; content: string; size: number; modified_at: number }>(
+      `/projects/${encodeURIComponent(id)}/files/${encodeURIComponent(fname)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ content }),
+      },
+    ),
+
   listRuns: (id: string) =>
     http<RunRecord[]>(`/projects/${encodeURIComponent(id)}/runs`),
 

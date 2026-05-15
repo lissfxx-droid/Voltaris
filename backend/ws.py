@@ -36,14 +36,17 @@ async def project_socket(websocket: WebSocket, project_id: str, since: int = 0):
     async for msg in runner.replay_history(project_id, since_seq=since):
         await _send(msg)
 
-    # 2. Snapshot the current on-disk markdown files. The watcher only emits
+    # 2. Snapshot the current on-disk artifact files. The watcher only emits
     # `file_updated` for live changes (and never persists them), so a fresh
     # client would otherwise have no way to learn the current file state
     # after a page refresh. This snapshot is authoritative — it overrides
     # whatever the replayed history contained.
     workdir = projects.project_workdir(project_id)
     if workdir.exists():
-        for p in sorted(workdir.glob("*.md")):
+        for fname in projects.ARTIFACT_FILES:
+            p = workdir / fname
+            if not p.exists():
+                continue
             try:
                 content = p.read_text(encoding="utf-8")
             except OSError:

@@ -41,6 +41,10 @@ class StartRunIn(BaseModel):
     agent_provider: Literal["claude", "codex"] | None = None
 
 
+class SaveFileIn(BaseModel):
+    content: str
+
+
 # --- Routes --------------------------------------------------------------------
 
 @app.get("/health")
@@ -85,6 +89,19 @@ async def get_file(project_id: str, fname: str):
     if content is None:
         raise HTTPException(404, "file not found")
     return {"name": fname, "content": content}
+
+
+@app.put("/projects/{project_id}/files/{fname}")
+async def put_file(project_id: str, fname: str, body: SaveFileIn):
+    proj = await projects.get_project(project_id)
+    if not proj:
+        raise HTTPException(404, "project not found")
+    if runner.get_active(project_id):
+        raise HTTPException(409, "cannot edit files while a run is active")
+    saved = await projects.write_file(project_id, fname, body.content)
+    if saved is None:
+        raise HTTPException(404, "file not writable")
+    return saved
 
 
 @app.get("/projects/{project_id}/runs")

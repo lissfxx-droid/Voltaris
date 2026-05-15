@@ -26,6 +26,10 @@ PHASE_FILES = [
     "final_report.md",
 ]
 
+ARTIFACT_FILES = [*PHASE_FILES, "05_circuit.thinir.yaml"]
+READABLE_FILES = {"00_project_brief.md", "CLAUDE.md", "AGENTS.md", *ARTIFACT_FILES}
+WRITABLE_FILES = {"00_project_brief.md", *ARTIFACT_FILES}
+
 
 def project_workdir(project_id: str) -> Path:
     return PROJECTS_DIR / project_id
@@ -106,7 +110,7 @@ async def list_files(project_id: str) -> list[dict[str, Any]]:
     if not workdir.exists():
         return []
     out: list[dict[str, Any]] = []
-    for fname in ["00_project_brief.md", *PHASE_FILES]:
+    for fname in ["00_project_brief.md", *ARTIFACT_FILES]:
         p = workdir / fname
         if p.exists():
             stat = p.stat()
@@ -122,13 +126,30 @@ async def list_files(project_id: str) -> list[dict[str, Any]]:
 
 async def read_file(project_id: str, fname: str) -> str | None:
     # Restrict reads to known files only (no path traversal).
-    allowed = {"00_project_brief.md", "CLAUDE.md", "AGENTS.md", *PHASE_FILES}
-    if fname not in allowed:
+    if fname not in READABLE_FILES:
         return None
     p = project_workdir(project_id) / fname
     if not p.exists():
         return None
     return p.read_text(encoding="utf-8")
+
+
+async def write_file(project_id: str, fname: str, content: str) -> dict[str, Any] | None:
+    # Restrict writes to first-class artifacts surfaced in the UI.
+    if fname not in WRITABLE_FILES:
+        return None
+    workdir = project_workdir(project_id)
+    if not workdir.exists():
+        return None
+    p = workdir / fname
+    p.write_text(content, encoding="utf-8")
+    stat = p.stat()
+    return {
+        "name": fname,
+        "content": content,
+        "size": stat.st_size,
+        "modified_at": stat.st_mtime,
+    }
 
 
 async def git_commit_run(project_id: str, message: str) -> None:

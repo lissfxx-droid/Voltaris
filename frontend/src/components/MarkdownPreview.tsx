@@ -4,9 +4,16 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
+import { api } from "../api";
+
 interface Props {
+  projectId: string;
   files: Record<string, string>;
+  runActive: boolean;
+  onSaved: (path: string, content: string) => void;
 }
+
+type ViewMode = "preview" | "source";
 
 const TABS: { key: string; label: string; short: string; group: string }[] = [
   { key: "00_project_brief.md", label: "项目状态", short: "状态", group: "State" },
@@ -21,12 +28,14 @@ const TABS: { key: string; label: string; short: string; group: string }[] = [
   { key: "05_circuit.thinir.yaml", label: "CircuitIR YAML", short: "YAML", group: "IR" },
 ];
 
+const EDITABLE_EXTENSIONS = [".md", ".yaml", ".yml"];
+
 // Strip the YAML frontmatter so the rendered preview shows only the prose.
 function stripFrontmatter(content: string): string {
   return content.replace(/^---\n[\s\S]*?\n---\n*/, "");
 }
 
-export function MarkdownPreview({ files }: Props) {
+export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props) {
   // Pick a sensible default tab: the most recently populated file.
   const initialTab = useMemo(() => {
     for (let i = TABS.length - 1; i >= 0; i--) {
@@ -37,22 +46,121 @@ export function MarkdownPreview({ files }: Props) {
   }, [Object.keys(files).join("|")]);
 
   const [active, setActive] = useState<string>(initialTab);
+  const [mode, setMode] = useState<ViewMode>("preview");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(files[initialTab] ?? "");
+  const [baseContent, setBaseContent] = useState(files[initialTab] ?? "");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [pendingExternal, setPendingExternal] = useState(false);
+  const [lastActive, setLastActive] = useState(active);
 
   // If the chosen tab becomes available later (e.g. file written mid-run),
   // keep the user's manual selection unless they're still on the default.
   useEffect(() => {
-    if (!files[active]?.trim() && initialTab !== active) {
+    if (!files[active]?.trim() && initialTab !== active && !editing) {
       setActive(initialTab);
     }
-  }, [initialTab]);
+  }, [active, editing, initialTab, files]);
 
   const raw = files[active] ?? "";
-  const content = stripFrontmatter(raw);
+  const displayedRaw = editing ? draft : raw;
+  const content = stripFrontmatter(displayedRaw);
   const empty = !content.trim();
   const activeTab = TABS.find((tab) => tab.key === active) ?? TABS[0];
-  const lineCount = raw ? raw.split("\n").length : 0;
-  const charCount = raw.length;
+  const lineCount = displayedRaw ? displayedRaw.split("\n").length : 0;
+  const charCount = displayedRaw.length;
   const isCodeArtifact = active.endsWith(".yaml") || active.endsWith(".yml");
+  const isEditable = EDITABLE_EXTENSIONS.some((ext) => active.endsWith(ext));
+  const dirty = draft !== baseContent;
+  const editLocked = runActive;
+  const canEdit = isEditable && !editLocked && !saving;
+  const showSource = editing || mode === "source" || isCodeArtifact;
+
+  useEffect(() => {
+    const latest = files[active] ?? "";
+    if (active !== lastActive) {
+      setLastActive(active);
+      setDraft(latest);
+      setBaseContent(latest);
+      setSaveError(null);
+      setNotice(null);
+      setPendingExternal(false);
+      setEditing(false);
+      setMode(isCodeArtifact ? "source" : "preview");
+      return;
+    }
+
+    if (editing) {
+      if (latest !== baseContent && latest !== draft) {
+        setPendingExternal(true);
+      }
+      return;
+    }
+    setDraft(latest);
+    setBaseContent(latest);
+    setPendingExternal(false);
+  }, [active, baseContent, draft, editing, files, isCodeArtifact, lastActive]);
+
+  useEffect(() => {
+    if (runActive && editing) {
+      setEditing(false);
+      setDraft(raw);
+      setBaseContent(raw);
+      setSaveError(null);
+      setPendingExternal(false);
+      setNotice("Run 已开始，编辑已关闭，产物会继续实时刷新。");
+    }
+  }, [editing, raw, runActive]);
+
+  const startEditing = () => {
+    if (!canEdit) return;
+    const latest = files[active] ?? "";
+    setDraft(latest);
+    setBaseContent(latest);
+    setEditing(true);
+    setMode("source");
+    setSaveError(null);
+    setNotice(null);
+    setPendingExternal(false);
+  };
+
+  const cancelEditing = () => {
+    setDraft(files[active] ?? "");
+    setBaseContent(files[active] ?? "");
+    setEditing(false);
+    setSaveError(null);
+    setPendingExternal(false);
+  };
+
+  const useLatestExternal = () => {
+    const latest = files[active] ?? "";
+    setDraft(latest);
+    setBaseContent(latest);
+    setPendingExternal(false);
+    setSaveError(null);
+  };
+
+  const saveDraft = async () => {
+    if (!dirty || saving || runActive) return;
+    setSaving(true);
+    setSaveError(null);
+    setNotice(null);
+    try {
+      const saved = await api.saveFile(projectId, active, draft);
+      onSaved(saved.name, saved.content);
+      setBaseContent(saved.content);
+      setDraft(saved.content);
+      setEditing(false);
+      setPendingExternal(false);
+      setNotice("已保存到项目 workdir。");
+    } catch (error) {
+      setSaveError(formatSaveError(error));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="markdown-preview">
@@ -80,6 +188,7 @@ export function MarkdownPreview({ files }: Props) {
               className={`md-tab${active === key ? " active" : ""}${has ? "" : " empty"}`}
               onClick={() => setActive(key)}
               title={key}
+              disabled={editing && dirty}
             >
               <span className="md-tab-label">{label}</span>
               <span className="md-tab-state">{has ? "ready" : "pending"}</span>
@@ -88,24 +197,100 @@ export function MarkdownPreview({ files }: Props) {
         })}
       </div>
 
-      <div className={`md-content${isCodeArtifact ? " md-code-artifact" : ""}`}>
-        {empty ? (
+      <div className="artifact-toolbar" aria-label="产物操作">
+        <div className="view-switch" role="group" aria-label="查看模式">
+          <button
+            type="button"
+            className={mode === "preview" && !editing ? "active" : ""}
+            onClick={() => setMode("preview")}
+            disabled={editing || isCodeArtifact}
+          >
+            预览
+          </button>
+          <button
+            type="button"
+            className={mode === "source" || editing ? "active" : ""}
+            onClick={() => setMode("source")}
+          >
+            源码
+          </button>
+        </div>
+
+        <div className="edit-actions">
+          {editing ? (
+            <>
+              <button type="button" onClick={cancelEditing} disabled={saving}>
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={saveDraft}
+                disabled={!dirty || saving || runActive}
+              >
+                {saving ? "保存中..." : "保存"}
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={startEditing} disabled={!canEdit}>
+              编辑
+            </button>
+          )}
+        </div>
+      </div>
+
+      {(runActive || pendingExternal || saveError || notice) && (
+        <div
+          className={`artifact-notice${
+            saveError ? " error" : pendingExternal ? " warning" : ""
+          }`}
+          role={saveError || pendingExternal ? "alert" : "status"}
+        >
+          <span>
+            {saveError ||
+              (pendingExternal
+                ? "文件在编辑期间收到实时更新，保存会覆盖当前远端内容。"
+                : notice || "Run 进行中，产物由执行流生成，手动编辑已锁定。")}
+          </span>
+          {pendingExternal && (
+            <button type="button" onClick={useLatestExternal} disabled={saving}>
+              使用最新内容
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className={`md-content${isCodeArtifact ? " md-code-artifact" : ""}${showSource ? " source-mode" : ""}`}>
+        {empty && !editing ? (
           <div className="muted center">
             {files[active] === undefined
               ? `${active} 还未生成`
               : `${active} 是空的`}
           </div>
-        ) : (
-          isCodeArtifact ? (
-            <pre className="artifact-code"><code>{raw}</code></pre>
+        ) : showSource ? (
+          editing ? (
+            <textarea
+              className="md-editor"
+              aria-label={`${activeTab.label} Markdown 源码`}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setSaveError(null);
+                setNotice(null);
+              }}
+              spellCheck={false}
+              disabled={saving || runActive}
+            />
           ) : (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex]}
-            >
-              {content}
-            </ReactMarkdown>
+            <pre className="artifact-code"><code>{displayedRaw}</code></pre>
           )
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
+          >
+            {content}
+          </ReactMarkdown>
         )}
       </div>
     </div>
@@ -116,4 +301,10 @@ function formatBytes(chars: number): string {
   if (!chars) return "0 B";
   if (chars < 1024) return `${chars} B`;
   return `${(chars / 1024).toFixed(1)} KB`;
+}
+
+function formatSaveError(error: unknown): string {
+  const text = String(error);
+  if (text.includes("409")) return "当前项目正在运行，保存被锁定。";
+  return `保存失败: ${text}`;
 }
