@@ -1,6 +1,6 @@
 // Thin HTTP client for the FastAPI backend. Vite proxies /api → http://localhost:8000.
 
-import type { Project, ProjectDetail, RunRecord } from "./types";
+import type { AgentProvider, Project, ProjectDetail, RunRecord } from "./types";
 
 const BASE = "/api";
 
@@ -21,7 +21,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => http<{ status: string }>("/health"),
+  health: () => http<{ status: string; agent_provider: AgentProvider }>("/health"),
 
   listProjects: () => http<Project[]>("/projects"),
 
@@ -45,12 +45,12 @@ export const api = {
   listRuns: (id: string) =>
     http<RunRecord[]>(`/projects/${encodeURIComponent(id)}/runs`),
 
-  startRun: (id: string, message: string) =>
-    http<{ run_id: number; project_id: string; status: string }>(
+  startRun: (id: string, message: string, agentProvider: AgentProvider) =>
+    http<{ run_id: number; project_id: string; status: string; agent_provider: AgentProvider }>(
       `/projects/${encodeURIComponent(id)}/runs`,
       {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, agent_provider: agentProvider }),
       },
     ),
 

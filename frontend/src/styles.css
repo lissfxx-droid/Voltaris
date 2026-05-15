@@ -906,6 +906,55 @@ pre {
   padding: 12px 16px;
   background: #fafafa;
 }
+.runtime-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  width: min(280px, 100%);
+  margin: 0 0 10px;
+  padding: 3px;
+  border: 1px solid #d7dfe5;
+  border-radius: 8px;
+  background: #eef2f4;
+}
+.runtime-selector:disabled {
+  opacity: 0.68;
+}
+.runtime-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: #4f5b64;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+.runtime-option input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.runtime-option.selected {
+  background: white;
+  color: #202124;
+  box-shadow: 0 1px 2px rgba(18, 27, 35, 0.12);
+}
+.runtime-option:has(input:focus-visible) {
+  outline: 2px solid #1f7ae0;
+  outline-offset: 2px;
+}
+.runtime-selector:disabled .runtime-option {
+  cursor: not-allowed;
+}
 .chat-input textarea {
   width: 100%;
   resize: none;

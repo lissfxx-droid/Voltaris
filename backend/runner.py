@@ -96,7 +96,11 @@ def get_active(project_id: str) -> RunHandle | None:
     return _active.get(project_id)
 
 
-async def start_run(project_id: str, user_message: str) -> RunHandle:
+async def start_run(
+    project_id: str,
+    user_message: str,
+    provider_name: str | None = None,
+) -> RunHandle:
     """Start a provider run for the project. Returns immediately with a RunHandle.
 
     Refuses to start if a run is already active for this project.
@@ -114,7 +118,7 @@ async def start_run(project_id: str, user_message: str) -> RunHandle:
         if not workdir.exists():
             raise FileNotFoundError(f"project workdir missing: {workdir}")
 
-        provider = get_provider()
+        provider = get_provider(provider_name)
 
         # Always sync the latest provider-specific prompts before each run.
         provider.prepare_workdir(workdir)
