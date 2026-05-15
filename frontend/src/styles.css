@@ -1075,6 +1075,93 @@ pre {
   color: #176f6b;
 }
 
+.artifact-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #d7dfe5;
+  background: #f2f5f7;
+}
+
+.view-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(62px, 1fr));
+  gap: 3px;
+  min-width: 136px;
+  padding: 3px;
+  border: 1px solid #d7dfe5;
+  border-radius: 8px;
+  background: #e8edf1;
+}
+
+.view-switch button {
+  min-height: 30px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #52606a;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 5px 9px;
+}
+
+.view-switch button.active {
+  background: white;
+  color: #176f6b;
+  box-shadow: 0 1px 2px rgba(18, 27, 35, 0.12);
+}
+
+.edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.edit-actions button {
+  min-height: 32px;
+  padding: 5px 13px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.artifact-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #d7dfe5;
+  background: #eef8f6;
+  color: #176f6b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.artifact-notice.warning {
+  background: #fff7df;
+  color: #805500;
+}
+
+.artifact-notice.error {
+  margin-top: 0;
+  background: #fff0ee;
+  color: #b42318;
+}
+
+.artifact-notice button {
+  flex: none;
+  min-height: 30px;
+  border-color: currentColor;
+  background: rgba(255, 255, 255, 0.75);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 4px 9px;
+}
+
 .md-content {
   flex: 1;
   min-width: 0;
@@ -1084,6 +1171,40 @@ pre {
   color: #24282c;
   line-height: 1.7;
 }
+
+.md-content.source-mode {
+  padding: 14px;
+  background: #10171c;
+}
+
+.md-editor {
+  display: block;
+  width: 100%;
+  min-height: 100%;
+  height: 100%;
+  resize: none;
+  border: 1px solid #2c3f49;
+  border-radius: 8px;
+  background: #11181d;
+  color: #e7f0f1;
+  font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  overflow: auto;
+  padding: 16px;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.md-editor:focus {
+  border-color: #75c9c1;
+  box-shadow: 0 0 0 2px rgba(117, 201, 193, 0.18);
+}
+
+.md-editor:disabled {
+  opacity: 0.72;
+}
+
 .md-content > :first-child { margin-top: 0; }
 .md-content > :last-child { margin-bottom: 0; }
 .md-content h1 {
@@ -1345,6 +1466,36 @@ pre {
   .md-content {
     padding: 18px 16px 24px;
   }
+
+  .artifact-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .view-switch {
+    width: 100%;
+  }
+
+  .edit-actions {
+    justify-content: stretch;
+  }
+
+  .edit-actions button {
+    flex: 1;
+  }
+
+  .artifact-notice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .artifact-notice button {
+    width: 100%;
+  }
+
+  .md-content.source-mode {
+    padding: 10px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1426,6 +1577,12 @@ pre {
 
   .md-content h2 {
     font-size: 17px;
+  }
+
+  .md-editor,
+  .artifact-code {
+    font-size: 11px;
+    padding: 12px;
   }
 }
 

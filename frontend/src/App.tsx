@@ -21,7 +21,7 @@ function loadWidth(key: string, fallback: number): number {
 
 export function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const { state } = useProjectSocket(activeId);
+  const { state, setFileContent } = useProjectSocket(activeId);
   const briefContent = state.files["00_project_brief.md"] ?? "";
   const brief = useMemo(() => parseBrief(briefContent), [briefContent]);
 
@@ -121,7 +121,12 @@ export function App() {
 
         <aside className="col-right" aria-label="设计产物预览">
           {activeId ? (
-            <MarkdownPreview files={state.files} />
+            <MarkdownPreview
+              projectId={activeId}
+              files={state.files}
+              runActive={state.runActive}
+              onSaved={setFileContent}
+            />
           ) : (
             <div className="artifact-empty">
               <span className="artifact-empty-label">Artifacts</span>

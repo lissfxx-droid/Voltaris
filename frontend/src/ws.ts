@@ -376,6 +376,7 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
 export interface UseProjectSocket {
   state: SocketState;
   reset: () => void;
+  setFileContent: (path: string, content: string) => void;
 }
 
 export function useProjectSocket(projectId: string | null): UseProjectSocket {
@@ -449,5 +450,12 @@ export function useProjectSocket(projectId: string | null): UseProjectSocket {
   return {
     state,
     reset: () => setState(EMPTY),
+    setFileContent: (path: string, content: string) => {
+      setState((s) => ({
+        ...s,
+        files: { ...s.files, [path]: content },
+        lastEvent: `Saved ${path}`,
+      }));
+    },
   };
 }
