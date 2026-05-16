@@ -267,7 +267,7 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
         </div>
       </div>
 
-      {(runActive || pendingExternal || saveError || notice) && (
+      {(pendingExternal || saveError || notice) && (
         <div
           className={`artifact-notice${
             saveError ? " error" : pendingExternal ? " warning" : ""
@@ -278,7 +278,7 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
             {saveError ||
               (pendingExternal
                 ? "文件在编辑期间收到实时更新，保存会覆盖当前远端内容。"
-                : notice || "Run 进行中，产物由执行流生成，手动编辑已锁定。")}
+                : notice)}
           </span>
           {pendingExternal && (
             <button type="button" onClick={useLatestExternal} disabled={saving}>
@@ -289,13 +289,7 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
       )}
 
       <div className={`md-content${isCodeArtifact ? " md-code-artifact" : ""}${showSource ? " source-mode" : ""}`}>
-        {empty && !editing ? (
-          <div className="muted center">
-            {files[active] === undefined
-              ? `${active} 还未生成`
-              : `${active} 是空的`}
-          </div>
-        ) : showSource ? (
+        {empty && !editing ? null : showSource ? (
           editing ? (
             <textarea
               className="md-editor"
