@@ -35,10 +35,28 @@ class ClaudeProvider(AgentRuntime):
         from .. import projects
 
         shutil.copy(projects.PROMPTS_DIR / "orchestrator.md", workdir / "CLAUDE.md")
-        agents_dst = workdir / ".claude" / "agents"
+        settings_dir = workdir / ".claude"
+        agents_dst = settings_dir / "agents"
         agents_dst.mkdir(parents=True, exist_ok=True)
         for f in (projects.PROMPTS_DIR / "agents").glob("*.md"):
             shutil.copy(f, agents_dst / f.name)
+
+        # Claude Code walks UP the directory tree from cwd loading every
+        # CLAUDE.md / CLAUDE.local.md / .claude/CLAUDE.md it finds, all the way
+        # to the filesystem root, and also reads ~/.claude/CLAUDE.md. When the
+        # backend is launched from a path that already has any of these files
+        # (e.g. an agent runtime workdir whose CLAUDE.md describes a different
+        # platform's workflow), Claude inherits that context instead of running
+        # the orchestrator. Pin claudeMdExcludes to every such ancestor file so
+        # only this project's own CLAUDE.md is loaded.
+        excludes = _ancestor_memory_excludes(workdir)
+        settings_path = settings_dir / "settings.local.json"
+        existing = _read_json(settings_path)
+        existing["claudeMdExcludes"] = excludes
+        settings_path.write_text(
+            json.dumps(existing, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     def build_command(self, prompt: str, workdir: Path) -> ProviderCommand:
         argv = [
@@ -97,6 +115,59 @@ def _env_flag(name: str, *, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _ancestor_memory_excludes(workdir: Path) -> list[str]:
+    """Return absolute paths of CLAUDE.md / CLAUDE.local.md files Claude Code
+    would otherwise pick up from outside the project workdir.
+
+    Walks every directory above ``workdir`` to the filesystem root, plus
+    ``~/.claude/CLAUDE.md``. The project's own ``workdir/CLAUDE.md`` is
+    intentionally NOT included so the orchestrator continues to load.
+    """
+    excludes: list[str] = []
+    seen: set[str] = set()
+
+    def _add(path: Path) -> None:
+        if not path.exists():
+            return
+        resolved = str(path.resolve())
+        if resolved in seen:
+            return
+        seen.add(resolved)
+        excludes.append(resolved)
+
+    workdir_resolved = workdir.resolve()
+    parent = workdir_resolved.parent
+    visited: set[Path] = set()
+    while parent not in visited:
+        visited.add(parent)
+        _add(parent / "CLAUDE.md")
+        _add(parent / "CLAUDE.local.md")
+        _add(parent / ".claude" / "CLAUDE.md")
+        if parent == parent.parent:
+            break
+        parent = parent.parent
+
+    try:
+        home = Path.home().resolve()
+    except (RuntimeError, OSError):
+        home = None
+    if home is not None:
+        _add(home / ".claude" / "CLAUDE.md")
+        _add(home / ".claude" / "CLAUDE.local.md")
+
+    return excludes
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _normalize_claude_event(

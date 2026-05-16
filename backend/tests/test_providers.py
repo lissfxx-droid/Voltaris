@@ -192,3 +192,66 @@ def test_codex_prepare_workdir_writes_agents_md(tmp_path: Path) -> None:
     assert (tmp_path / ".codex" / "agents" / "requirement-analyzer.md").exists()
     assert (tmp_path / ".codex" / "refs" / "CircuitIR.md").exists()
     assert (tmp_path / ".codex" / "tools" / "validate.py").exists()
+
+
+def test_claude_prepare_workdir_excludes_ancestor_claude_md(tmp_path: Path) -> None:
+    poison = tmp_path / "poisoned-host"
+    workdir = poison / "Voltaris" / "projects" / "led-abc"
+    workdir.mkdir(parents=True)
+    poison_claude = poison / "CLAUDE.md"
+    poison_claude.write_text("# Other agent runtime", encoding="utf-8")
+    poison_local = poison / "CLAUDE.local.md"
+    poison_local.write_text("# Other agent local", encoding="utf-8")
+    poison_dotclaude = poison / ".claude" / "CLAUDE.md"
+    poison_dotclaude.parent.mkdir()
+    poison_dotclaude.write_text("# Other agent dotdir", encoding="utf-8")
+
+    ClaudeProvider().prepare_workdir(workdir)
+
+    settings_path = workdir / ".claude" / "settings.local.json"
+    assert settings_path.exists()
+    excludes = json.loads(settings_path.read_text(encoding="utf-8"))[
+        "claudeMdExcludes"
+    ]
+    assert str(poison_claude.resolve()) in excludes
+    assert str(poison_local.resolve()) in excludes
+    assert str(poison_dotclaude.resolve()) in excludes
+    # The project's own CLAUDE.md must NOT be excluded — it is the orchestrator.
+    assert str((workdir / "CLAUDE.md").resolve()) not in excludes
+    # The orchestrator was still written.
+    assert (workdir / "CLAUDE.md").read_text(encoding="utf-8").startswith(
+        "# 你是 PCB 设计 Orchestrator"
+    )
+
+
+def test_claude_prepare_workdir_writes_excludes_when_no_ancestor_pollution(
+    tmp_path: Path,
+) -> None:
+    workdir = tmp_path / "clean" / "led-clean"
+    workdir.mkdir(parents=True)
+
+    ClaudeProvider().prepare_workdir(workdir)
+
+    settings_path = workdir / ".claude" / "settings.local.json"
+    assert settings_path.exists()
+    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert "claudeMdExcludes" in payload
+    assert isinstance(payload["claudeMdExcludes"], list)
+    # Project's own CLAUDE.md is never excluded.
+    assert str((workdir / "CLAUDE.md").resolve()) not in payload["claudeMdExcludes"]
+
+
+def test_claude_prepare_workdir_preserves_existing_settings(tmp_path: Path) -> None:
+    workdir = tmp_path / "with-prior-settings"
+    (workdir / ".claude").mkdir(parents=True)
+    settings_path = workdir / ".claude" / "settings.local.json"
+    settings_path.write_text(
+        json.dumps({"someUnrelatedKey": "keep-me"}),
+        encoding="utf-8",
+    )
+
+    ClaudeProvider().prepare_workdir(workdir)
+
+    payload = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert payload["someUnrelatedKey"] == "keep-me"
+    assert "claudeMdExcludes" in payload
