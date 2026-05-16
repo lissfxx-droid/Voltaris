@@ -49,24 +49,31 @@ class ClaudeProvider(AgentRuntime):
             "stream-json",
             "--verbose",
         ]
-        if _env_flag("CLAUDE_SKIP_PERMISSIONS", default=True):
+        skip_permissions = _env_flag("CLAUDE_SKIP_PERMISSIONS", default=True)
+        if skip_permissions:
             argv.append("--dangerously-skip-permissions")
-        return ProviderCommand(
-            argv=argv,
-            cwd=workdir,
-            env=copy_env(
-                [
-                    "ANTHROPIC_API_KEY",
-                    "CLAUDE_CODE_OAUTH_TOKEN",
-                    "PATH",
-                    "HOME",
-                    "USER",
-                    "SHELL",
-                    "LANG",
-                    "LC_ALL",
-                ]
-            ),
+        env = copy_env(
+            [
+                "ANTHROPIC_API_KEY",
+                "CLAUDE_CODE_OAUTH_TOKEN",
+                "IS_SANDBOX",
+                "PATH",
+                "HOME",
+                "USER",
+                "SHELL",
+                "LANG",
+                "LC_ALL",
+            ]
         )
+        # Claude CLI refuses --dangerously-skip-permissions under root unless
+        # IS_SANDBOX=1 is set in its env. Backend services often run as root
+        # (systemd, container, etc.) and copy_env() only forwards the explicit
+        # allowlist, so any IS_SANDBOX from the parent shell would be stripped
+        # without this. Force it on whenever we ask for permission bypass so the
+        # behavior does not depend on however the backend was launched.
+        if skip_permissions:
+            env.setdefault("IS_SANDBOX", "1")
+        return ProviderCommand(argv=argv, cwd=workdir, env=env)
 
     def parse_line(self, line: str, channel: str) -> list[ProviderStreamEvent]:
         if not line:

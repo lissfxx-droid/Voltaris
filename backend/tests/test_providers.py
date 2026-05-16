@@ -75,6 +75,46 @@ def test_claude_events_normalize_to_internal_protocol() -> None:
     assert result["result"] == "done"
 
 
+def test_claude_command_injects_is_sandbox_for_root_skip_permissions(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_BIN", "claude-test")
+    monkeypatch.delenv("CLAUDE_SKIP_PERMISSIONS", raising=False)
+    monkeypatch.delenv("IS_SANDBOX", raising=False)
+
+    command = ClaudeProvider().build_command("ping", tmp_path)
+
+    assert "--dangerously-skip-permissions" in command.argv
+    assert command.env is not None
+    assert command.env.get("IS_SANDBOX") == "1"
+
+
+def test_claude_command_preserves_parent_is_sandbox(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_BIN", "claude-test")
+    monkeypatch.setenv("IS_SANDBOX", "custom-value")
+
+    command = ClaudeProvider().build_command("ping", tmp_path)
+
+    assert command.env is not None
+    assert command.env.get("IS_SANDBOX") == "custom-value"
+
+
+def test_claude_command_skips_is_sandbox_when_permissions_required(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_BIN", "claude-test")
+    monkeypatch.setenv("CLAUDE_SKIP_PERMISSIONS", "false")
+    monkeypatch.delenv("IS_SANDBOX", raising=False)
+
+    command = ClaudeProvider().build_command("ping", tmp_path)
+
+    assert "--dangerously-skip-permissions" not in command.argv
+    assert command.env is not None
+    assert "IS_SANDBOX" not in command.env
+
+
 def test_codex_command_is_explicit_and_sandboxed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("CODEX_BIN", "codex-test")
     monkeypatch.setenv("CODEX_MODEL", "gpt-test")
