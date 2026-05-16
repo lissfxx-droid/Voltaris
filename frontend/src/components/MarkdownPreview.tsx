@@ -13,8 +13,6 @@ interface Props {
   onSaved: (path: string, content: string) => void;
 }
 
-type ViewMode = "preview" | "source";
-
 const TABS: { key: string; label: string; short: string; group: string }[] = [
   { key: "00_project_brief.md", label: "项目状态", short: "状态", group: "State" },
   { key: "01_requirements.md", label: "需求分析", short: "1", group: "Phase" },
@@ -46,7 +44,6 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
   }, [Object.keys(files).join("|")]);
 
   const [active, setActive] = useState<string>(initialTab);
-  const [mode, setMode] = useState<ViewMode>("preview");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(files[initialTab] ?? "");
   const [baseContent, setBaseContent] = useState(files[initialTab] ?? "");
@@ -94,7 +91,7 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
   const dirty = draft !== baseContent;
   const editLocked = runActive;
   const canEdit = isEditable && !editLocked && !saving;
-  const showSource = editing || mode === "source" || isCodeArtifact;
+  const showSource = editing || isCodeArtifact;
 
   useEffect(() => {
     const latest = files[active] ?? "";
@@ -106,7 +103,6 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
       setNotice(null);
       setPendingExternal(false);
       setEditing(false);
-      setMode(isCodeArtifact ? "source" : "preview");
       return;
     }
 
@@ -138,7 +134,6 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
     setDraft(latest);
     setBaseContent(latest);
     setEditing(true);
-    setMode("source");
     setSaveError(null);
     setNotice(null);
     setPendingExternal(false);
@@ -209,17 +204,6 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
               disabled={editing && dirty}
             >
               <span className="md-tab-label">{label}</span>
-              {has && (
-                <span
-                  className="md-tab-state-icon"
-                  aria-label="可查看"
-                  title="可查看"
-                >
-                  {/* 单一"眼睛"图标，替代之前每个 tab 重复的 READY / PENDING
-                      文本列（PCB-25 #3 走查反馈）。 */}
-                  <EyeIcon />
-                </span>
-              )}
             </button>
           );
         })}
@@ -229,42 +213,44 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
         <div className="view-switch" role="group" aria-label="查看模式">
           <button
             type="button"
-            className={mode === "preview" && !editing ? "active" : ""}
-            onClick={() => setMode("preview")}
-            disabled={editing || isCodeArtifact}
+            className={!editing ? "active" : ""}
+            onClick={() => {
+              if (editing) cancelEditing();
+            }}
+            title="阅读"
+            aria-label="阅读"
+            aria-pressed={!editing}
           >
-            预览
+            <BookIcon />
           </button>
           <button
             type="button"
-            className={mode === "source" || editing ? "active" : ""}
-            onClick={() => setMode("source")}
+            className={editing ? "active" : ""}
+            onClick={startEditing}
+            disabled={!canEdit && !editing}
+            title={canEdit || editing ? "编辑" : "当前不可编辑"}
+            aria-label="编辑"
+            aria-pressed={editing}
           >
-            源码
+            <PenIcon />
           </button>
         </div>
 
-        <div className="edit-actions">
-          {editing ? (
-            <>
-              <button type="button" onClick={cancelEditing} disabled={saving}>
-                取消
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={saveDraft}
-                disabled={!dirty || saving || runActive}
-              >
-                {saving ? "保存中..." : "保存"}
-              </button>
-            </>
-          ) : (
-            <button type="button" onClick={startEditing} disabled={!canEdit}>
-              编辑
+        {editing && (
+          <div className="edit-actions">
+            <button type="button" onClick={cancelEditing} disabled={saving}>
+              取消
             </button>
-          )}
-        </div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={saveDraft}
+              disabled={!dirty || saving || runActive}
+            >
+              {saving ? "保存中..." : "保存"}
+            </button>
+          </div>
+        )}
       </div>
 
       {(pendingExternal || saveError || notice) && (
@@ -331,21 +317,40 @@ function formatSaveError(error: unknown): string {
   return `保存失败: ${text}`;
 }
 
-function EyeIcon() {
+function BookIcon() {
   return (
     <svg
-      width="12"
-      height="12"
+      width="14"
+      height="14"
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1"
+      strokeWidth="1.4"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
-      <circle cx="8" cy="8" r="2.2" />
+      <path d="M2.5 3h3.5a2 2 0 0 1 2 2v8a1.5 1.5 0 0 0-1.5-1.5H2.5z" />
+      <path d="M13.5 3H10a2 2 0 0 0-2 2v8a1.5 1.5 0 0 1 1.5-1.5h4z" />
+    </svg>
+  );
+}
+
+function PenIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M11.2 2.3l2.5 2.5-8 8H3.2V10z" />
+      <path d="M10 3.5l2.5 2.5" />
     </svg>
   );
 }

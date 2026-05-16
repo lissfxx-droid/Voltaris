@@ -1106,30 +1106,8 @@ span.project-meta {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.md-tab-state-icon {
-  display: inline-flex;
-  align-items: center;
-  height: 12px;
-  color: #98a3ab;
-  transform-origin: center;
-  animation: md-tab-eye-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
-}
 .md-tab.active .md-tab-state {
   color: #176f6b;
-}
-.md-tab.active .md-tab-state-icon {
-  color: #176f6b;
-}
-
-@keyframes md-tab-eye-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .artifact-toolbar {
@@ -1144,9 +1122,8 @@ span.project-meta {
 
 .view-switch {
   display: inline-grid;
-  grid-template-columns: repeat(2, minmax(62px, 1fr));
+  grid-template-columns: repeat(2, 36px);
   gap: 3px;
-  min-width: 136px;
   padding: 3px;
   border: 1px solid #d7dfe5;
   border-radius: 8px;
@@ -1154,14 +1131,20 @@ span.project-meta {
 }
 
 .view-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 30px;
   border: none;
   border-radius: 5px;
   background: transparent;
   color: #52606a;
-  font-size: 12px;
-  font-weight: 750;
-  padding: 5px 9px;
+  padding: 0;
+}
+
+.view-switch button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .view-switch button.active {
@@ -1530,7 +1513,7 @@ span.project-meta {
   }
 
   .view-switch {
-    width: 100%;
+    align-self: flex-start;
   }
 
   .edit-actions {
