@@ -14,17 +14,6 @@ interface Props {
   configuredProvider: AgentProvider | null;
 }
 
-type RuntimeChoice = "claude" | "codex";
-
-const RUNTIME_OPTIONS: Array<{ value: RuntimeChoice; label: string }> = [
-  { value: "claude", label: "Claude" },
-  { value: "codex", label: "Codex" },
-];
-
-function normalizeRuntime(provider: AgentProvider | null | undefined): RuntimeChoice {
-  return provider === "codex" ? "codex" : "claude";
-}
-
 export function ChatPanel({
   projectId,
   chat,
@@ -33,14 +22,10 @@ export function ChatPanel({
   configuredProvider,
 }: Props) {
   const [input, setInput] = useState("");
-  const [selectedProvider, setSelectedProvider] = useState<RuntimeChoice>(() =>
-    normalizeRuntime(configuredProvider),
-  );
-  const [providerSeeded, setProviderSeeded] = useState(Boolean(configuredProvider));
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const startMut = useMutation({
-    mutationFn: (message: string) => api.startRun(projectId, message, selectedProvider),
+    mutationFn: (message: string) => api.startRun(projectId, message),
     onSuccess: () => setInput(""),
   });
 
@@ -61,27 +46,15 @@ export function ChatPanel({
     if (el) el.scrollTop = el.scrollHeight;
   }, [chat.length, runActive]);
 
-  useEffect(() => {
-    setSelectedProvider(normalizeRuntime(configuredProvider));
-    setProviderSeeded(Boolean(configuredProvider));
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!runActive && configuredProvider && !providerSeeded) {
-      setSelectedProvider(normalizeRuntime(configuredProvider));
-      setProviderSeeded(true);
-    }
-  }, [configuredProvider, providerSeeded, runActive]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || runActive || !providerSeeded) return;
+    if (!text || runActive) return;
     startMut.mutate(text);
   };
 
-  const canSend = !runActive && !startMut.isPending && connected && providerSeeded;
-  const runtimeLocked = runActive;
+  const canSend = !runActive && !startMut.isPending && connected;
+  const providerName = providerLabel(configuredProvider ?? undefined);
 
   return (
     <div className="chat-panel">
@@ -98,33 +71,6 @@ export function ChatPanel({
       </div>
 
       <form className="chat-input" onSubmit={handleSubmit}>
-        <fieldset
-          className="runtime-selector"
-          disabled={runtimeLocked}
-          aria-label="选择 AI 运行时"
-        >
-          {RUNTIME_OPTIONS.map((option) => {
-            const checked = selectedProvider === option.value;
-            return (
-              <label
-                key={option.value}
-                className={`runtime-option${checked ? " selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="agent-provider"
-                  value={option.value}
-                  checked={checked}
-                  onChange={() => {
-                    setSelectedProvider(option.value);
-                    setProviderSeeded(true);
-                  }}
-                />
-                <span>{option.label}</span>
-              </label>
-            );
-          })}
-        </fieldset>
         <label className="sr-only" htmlFor="run-message">
           输入运行需求
         </label>
@@ -149,13 +95,14 @@ export function ChatPanel({
         />
         <div className="chat-input-actions">
           <span className="hint">
+            <span className="runtime-badge" title="运行时在创建项目时已锁定">
+              {providerName}
+            </span>
             {!connected
-              ? "WS 未连接"
-              : !providerSeeded
-                ? "读取运行时..."
+              ? " · WS 未连接"
               : runActive
-                ? "运行中..."
-                : "Cmd/Ctrl+Enter 发送"}
+                ? " · 运行中..."
+                : " · Cmd/Ctrl+Enter 发送"}
           </span>
           {runActive ? (
             <button

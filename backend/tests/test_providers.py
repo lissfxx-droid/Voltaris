@@ -178,6 +178,89 @@ def test_codex_events_normalize_to_internal_protocol() -> None:
     assert result["is_error"] is False
 
 
+def test_codex_events_cover_mcp_web_and_patch_apply() -> None:
+    # Newer Codex builds emit MCP tool calls, web search, and patch_apply
+    # events alongside plain shell exec. The normalizer must surface all of
+    # them as agent_tool start/finish pairs so the Codex side of the chat
+    # shows the same step-by-step view as Claude (PCB-25 #1).
+    provider = CodexProvider()
+
+    mcp_begin = events(
+        provider,
+        {
+            "type": "mcp_tool_call_begin",
+            "call_id": "mcp-1",
+            "server": "filesystem",
+            "name": "read_file",
+            "arguments": {"path": "README.md"},
+        },
+    )[0]
+    assert mcp_begin["type"] == "agent_tool"
+    assert mcp_begin["phase"] == "started"
+    assert mcp_begin["tool_id"] == "mcp-1"
+    assert mcp_begin["name"] == "read_file"
+    assert mcp_begin["input"]["path"] == "README.md"
+
+    mcp_begin_no_name = events(
+        provider,
+        {
+            "type": "mcp_tool_call_begin",
+            "call_id": "mcp-2",
+            "server": "filesystem",
+        },
+    )[0]
+    # Falls back to the MCP-specific default when the call has no name field.
+    assert mcp_begin_no_name["name"] == "filesystem"
+
+    mcp_end = events(
+        provider,
+        {
+            "type": "mcp_tool_call_end",
+            "call_id": "mcp-1",
+            "result": "file contents",
+        },
+    )[0]
+    assert mcp_end["type"] == "agent_tool"
+    assert mcp_end["phase"] == "finished"
+    assert mcp_end["result"] == "file contents"
+    assert mcp_end["is_error"] is False
+
+    web = events(
+        provider,
+        {"type": "web_search_begin", "call_id": "ws-1", "query": "esp32 thermistor"},
+    )[0]
+    assert web["type"] == "agent_tool"
+    assert web["name"] == "esp32 thermistor"
+
+    patch_begin = events(
+        provider,
+        {"type": "patch_apply_begin", "call_id": "patch-1"},
+    )[0]
+    assert patch_begin["type"] == "agent_tool"
+    assert patch_begin["name"] == "apply_patch"
+
+    patch_end = events(
+        provider,
+        {
+            "type": "patch_apply_end",
+            "call_id": "patch-1",
+            "success": False,
+            "stderr": "conflict in foo.md",
+        },
+    )[0]
+    assert patch_end["type"] == "agent_tool"
+    assert patch_end["phase"] == "finished"
+    assert patch_end["is_error"] is True
+    assert "conflict" in patch_end["result"]
+
+    task = events(
+        provider,
+        {"type": "task_started"},
+    )[0]
+    assert task["type"] == "agent_system"
+    assert "Codex turn started" in task["message"]
+
+
 def test_codex_prepare_workdir_writes_agents_md(tmp_path: Path) -> None:
     CodexProvider().prepare_workdir(tmp_path)
 

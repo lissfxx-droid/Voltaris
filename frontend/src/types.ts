@@ -5,6 +5,7 @@ export interface Project {
   name: string;
   created_at: string;
   updated_at: string;
+  agent_provider?: AgentProvider | null;
 }
 
 export interface FileMeta {

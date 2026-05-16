@@ -51,3 +51,59 @@ async def test_put_file_rejects_active_run(
         )
 
     assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_create_project_persists_agent_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Runtime is now chosen at project creation and stored on the row, so
+    # start_run can look it up and refuse to honour any client-side switch
+    # (PCB-25 #4).
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "pcb.sqlite")
+    monkeypatch.setattr(projects, "PROJECTS_DIR", tmp_path / "projects")
+
+    await db.init_db()
+    project = await projects.create_project("Pinned", agent_provider="codex")
+    assert project["agent_provider"] == "codex"
+
+    fetched = await projects.get_project(project["id"])
+    assert fetched is not None
+    assert fetched["agent_provider"] == "codex"
+
+    listed = {row["id"]: row for row in await projects.list_projects()}
+    assert listed[project["id"]]["agent_provider"] == "codex"
+
+
+@pytest.mark.asyncio
+async def test_create_project_rejects_unknown_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "pcb.sqlite")
+    monkeypatch.setattr(projects, "PROJECTS_DIR", tmp_path / "projects")
+
+    await db.init_db()
+    with pytest.raises(ValueError):
+        await projects.create_project("Bad", agent_provider="not-a-runtime")
+
+    # The aborted create must not leave a half-built workdir behind.
+    listed = await projects.list_projects()
+    assert listed == []
+
+
+@pytest.mark.asyncio
+async def test_get_project_detail_falls_back_to_env_default_for_legacy_rows(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Rows created before the agent_provider column existed (or by older
+    # backends that didn't set it) should still report a usable provider so
+    # the UI doesn't render an empty runtime badge.
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "pcb.sqlite")
+    monkeypatch.setattr(projects, "PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setenv("VOLTARIS_AGENT_PROVIDER", "claude")
+
+    await db.init_db()
+    project = await projects.create_project("Legacy", agent_provider=None)
+
+    detail = await main.get_project_detail(project["id"])
+    assert detail["agent_provider"] == "claude"

@@ -177,7 +177,13 @@ def _normalize_codex_event(
             )
         ]
 
-    if typ in {"turn_started", "codex_turn_started", "codexTurnStarted"}:
+    if typ in {
+        "turn_started",
+        "codex_turn_started",
+        "codexTurnStarted",
+        "task_started",
+        "taskStarted",
+    }:
         return [system_event("info", "Codex turn started", raw=payload)]
 
     if typ in {
@@ -207,13 +213,18 @@ def _normalize_codex_event(
         "tool_call_begin",
         "command/exec",
         "item/commandExecution",
+        "mcp_tool_call_begin",
+        "mcpToolCallBegin",
+        "web_search_begin",
+        "webSearchBegin",
     }:
         tool_id = (
             _first_str(data, "call_id", "id", "tool_call_id", "item_id")
             or _stable_id(payload)
         )
-        name = _first_str(data, "name", "tool_name") or "exec_command"
-        command = _first_str(data, "command", "cmd", "input")
+        default_name = _default_tool_name(typ)
+        name = _first_str(data, "name", "tool_name", "server", "query") or default_name
+        command = _first_str(data, "command", "cmd", "input", "query")
         input_obj: dict[str, Any] = {}
         if command:
             input_obj["command"] = command
@@ -233,6 +244,10 @@ def _normalize_codex_event(
         "tool_call_end",
         "command/exec/completed",
         "item/commandExecution/completed",
+        "mcp_tool_call_end",
+        "mcpToolCallEnd",
+        "web_search_end",
+        "webSearchEnd",
     }:
         tool_id = (
             _first_str(data, "call_id", "id", "tool_call_id", "item_id")
@@ -240,7 +255,7 @@ def _normalize_codex_event(
         )
         result = (
             _first_str(
-                data, "output", "stdout", "stderr", "aggregated_output", "text", "delta"
+                data, "output", "stdout", "stderr", "aggregated_output", "text", "delta", "result"
             )
             or ""
         )
@@ -249,9 +264,27 @@ def _normalize_codex_event(
         ) not in (None, 0)
         return [agent_tool_finish(tool_id, result=result, is_error=is_error, raw=payload)]
 
-    if typ in {"patch_apply_begin", "patch_apply_updated", "patchApply/updated"}:
+    if typ in {
+        "patch_apply_begin",
+        "patch_apply_updated",
+        "patchApply/updated",
+        "patchApplyBegin",
+    }:
         tool_id = _first_str(data, "call_id", "id", "item_id") or _stable_id(payload)
         return [agent_tool_start(tool_id, "apply_patch", _compact_dict(data), raw=payload)]
+
+    if typ in {
+        "patch_apply_end",
+        "patch_apply_completed",
+        "patchApplyEnd",
+        "patchApply/completed",
+    }:
+        tool_id = _first_str(data, "call_id", "id", "item_id") or _stable_id(payload)
+        result = _first_str(data, "output", "stdout", "stderr", "result", "summary") or ""
+        is_error = bool(data.get("is_error") or data.get("error")) or not bool(
+            data.get("success", True)
+        )
+        return [agent_tool_finish(tool_id, result=result, is_error=is_error, raw=payload)]
 
     if typ in {
         "turn_completed",
@@ -389,6 +422,16 @@ def _compact_dict(data: dict[str, Any]) -> dict[str, Any]:
 def _exit_code(data: dict[str, Any]) -> int | None:
     value = data.get("exit_code") or data.get("exitCode")
     return value if isinstance(value, int) else None
+
+
+def _default_tool_name(typ: str | None) -> str:
+    if not typ:
+        return "tool"
+    if "mcp" in typ.lower():
+        return "mcp_tool"
+    if "web_search" in typ.lower() or "websearch" in typ.lower():
+        return "web_search"
+    return "exec_command"
 
 
 def _stable_id(payload: dict[str, Any]) -> str:

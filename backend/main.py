@@ -34,11 +34,11 @@ app.include_router(ws.router)
 
 class CreateProjectIn(BaseModel):
     name: str
+    agent_provider: Literal["claude", "codex"] | None = None
 
 
 class StartRunIn(BaseModel):
     message: str
-    agent_provider: Literal["claude", "codex"] | None = None
 
 
 class SaveFileIn(BaseModel):
@@ -61,7 +61,12 @@ async def get_projects():
 async def post_project(body: CreateProjectIn):
     if not body.name.strip():
         raise HTTPException(400, "name required")
-    return await projects.create_project(body.name)
+    try:
+        return await projects.create_project(
+            body.name, agent_provider=body.agent_provider
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.get("/projects/{project_id}")
@@ -72,7 +77,12 @@ async def get_project_detail(project_id: str):
     active = runner.get_active(project_id)
     proj["files"] = await projects.list_files(project_id)
     proj["active_run"] = bool(active)
-    proj["agent_provider"] = active.provider.name if active else selected_provider_name()
+    # Runtime is fixed at project creation: prefer the stored choice over
+    # whichever runtime the active run happens to be using, and fall back to
+    # the deployment default only for legacy rows that predate the column.
+    proj["agent_provider"] = (
+        proj.get("agent_provider") or selected_provider_name()
+    )
     return proj
 
 
@@ -114,8 +124,14 @@ async def get_runs(project_id: str):
 
 @app.post("/projects/{project_id}/runs", status_code=202)
 async def start_run(project_id: str, body: StartRunIn):
+    # The runtime is fixed at project creation and intentionally not accepted
+    # from this request body — the client cannot switch providers mid-project.
+    proj = await projects.get_project(project_id)
+    if not proj:
+        raise HTTPException(404, "project not found")
+    provider_name = proj.get("agent_provider") or selected_provider_name()
     try:
-        handle = await runner.start_run(project_id, body.message, body.agent_provider)
+        handle = await runner.start_run(project_id, body.message, provider_name)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:

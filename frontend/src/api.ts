@@ -25,10 +25,12 @@ export const api = {
 
   listProjects: () => http<Project[]>("/projects"),
 
-  createProject: (name: string) =>
+  createProject: (name: string, agentProvider?: AgentProvider) =>
     http<Project>("/projects", {
       method: "POST",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(
+        agentProvider ? { name, agent_provider: agentProvider } : { name },
+      ),
     }),
 
   getProject: (id: string) =>
@@ -54,12 +56,12 @@ export const api = {
   listRuns: (id: string) =>
     http<RunRecord[]>(`/projects/${encodeURIComponent(id)}/runs`),
 
-  startRun: (id: string, message: string, agentProvider: AgentProvider) =>
+  startRun: (id: string, message: string) =>
     http<{ run_id: number; project_id: string; status: string; agent_provider: AgentProvider }>(
       `/projects/${encodeURIComponent(id)}/runs`,
       {
         method: "POST",
-        body: JSON.stringify({ message, agent_provider: agentProvider }),
+        body: JSON.stringify({ message }),
       },
     ),
 

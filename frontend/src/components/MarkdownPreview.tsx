@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -55,14 +55,32 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
   const [saving, setSaving] = useState(false);
   const [pendingExternal, setPendingExternal] = useState(false);
   const [lastActive, setLastActive] = useState(active);
+  // Once the user explicitly picks a tab we stop auto-following `initialTab`.
+  // Without this, clicking an empty/PENDING tab triggered the auto-revert
+  // effect on the very next render and snapped the view back to the brief,
+  // producing a visible flicker (bug PCB-25 #2).
+  const userPickedRef = useRef(false);
 
-  // If the chosen tab becomes available later (e.g. file written mid-run),
-  // keep the user's manual selection unless they're still on the default.
+  const pickTab = (key: string) => {
+    userPickedRef.current = true;
+    setActive(key);
+  };
+
+  // Reset the user-pick tracker when switching projects so the new project
+  // can still auto-follow its own latest populated file.
   useEffect(() => {
-    if (!files[active]?.trim() && initialTab !== active && !editing) {
+    userPickedRef.current = false;
+    setActive(initialTab);
+  }, [projectId]);
+
+  // Auto-follow `initialTab` only when the user has not made an explicit
+  // selection yet (e.g. files arrive after first mount and there is now a
+  // sensible default to pick).
+  useEffect(() => {
+    if (!userPickedRef.current && initialTab !== active && !editing) {
       setActive(initialTab);
     }
-  }, [active, editing, initialTab, files]);
+  }, [active, editing, initialTab]);
 
   const raw = files[active] ?? "";
   const displayedRaw = editing ? draft : raw;
@@ -186,12 +204,22 @@ export function MarkdownPreview({ projectId, files, runActive, onSaved }: Props)
               role="tab"
               aria-selected={active === key}
               className={`md-tab${active === key ? " active" : ""}${has ? "" : " empty"}`}
-              onClick={() => setActive(key)}
-              title={key}
+              onClick={() => pickTab(key)}
+              title={has ? `${key} · 可查看` : `${key} · 暂无内容`}
               disabled={editing && dirty}
             >
               <span className="md-tab-label">{label}</span>
-              <span className="md-tab-state">{has ? "ready" : "pending"}</span>
+              {has && (
+                <span
+                  className="md-tab-state-icon"
+                  aria-label="可查看"
+                  title="可查看"
+                >
+                  {/* 单一"眼睛"图标，替代之前每个 tab 重复的 READY / PENDING
+                      文本列（PCB-25 #3 走查反馈）。 */}
+                  <EyeIcon />
+                </span>
+              )}
             </button>
           );
         })}
@@ -307,4 +335,23 @@ function formatSaveError(error: unknown): string {
   const text = String(error);
   if (text.includes("409")) return "当前项目正在运行，保存被锁定。";
   return `保存失败: ${text}`;
+}
+
+function EyeIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
+      <circle cx="8" cy="8" r="2.2" />
+    </svg>
+  );
 }

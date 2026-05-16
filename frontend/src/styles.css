@@ -917,6 +917,30 @@ pre {
   border-radius: 8px;
   background: #eef2f4;
 }
+.runtime-selector-create {
+  width: 100%;
+  margin: 0 0 8px;
+}
+.runtime-legend {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 4px;
+  padding: 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #68737d;
+}
+.runtime-legend-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  font-size: 10px;
+  color: #94a0a8;
+}
 .runtime-selector:disabled {
   opacity: 0.68;
 }
@@ -954,6 +978,32 @@ pre {
 }
 .runtime-selector:disabled .runtime-option {
   cursor: not-allowed;
+}
+.runtime-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #eef2f4;
+  border: 1px solid #d7dfe5;
+  color: #4f5b64;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.project-runtime {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #eef2f4;
+  border: 1px solid #d7dfe5;
+  color: #4f5b64;
+  font-weight: 700;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .chat-input textarea {
   width: 100%;
@@ -1071,7 +1121,16 @@ pre {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.md-tab-state-icon {
+  display: inline-flex;
+  align-items: center;
+  height: 12px;
+  color: #98a3ab;
+}
 .md-tab.active .md-tab-state {
+  color: #176f6b;
+}
+.md-tab.active .md-tab-state-icon {
   color: #176f6b;
 }
 
