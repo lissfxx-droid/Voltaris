@@ -24,6 +24,35 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Slim, low-contrast scrollbars so panes don't fight the chat for attention.
+   Linux/Gnome's default is a wide opaque bar; both this rule and the WebKit
+   pseudo-elements below soften that across browsers. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 27, 35, 0.18) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(15, 27, 35, 0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 27, 35, 0.3);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 button {
   font-family: inherit;
   font-size: inherit;
@@ -507,15 +536,15 @@ span.project-meta {
 /* --- Phase Progress -------------------------------------------------------- */
 
 .phase-progress {
-  border-bottom: 1px solid #eef0f2;
-  padding: 8px 16px 10px;
+  border-bottom: 1px solid #e5e5e5;
+  padding: 12px 16px;
   background: white;
 }
 .phase-header {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-bottom: 6px;
+  margin-bottom: 12px;
 }
 .phase-title {
   font-size: 16px;
@@ -541,42 +570,38 @@ span.project-meta {
 
 .phase-bar {
   display: flex;
-  gap: 3px;
+  gap: 4px;
 }
 .phase-segment {
   flex: 1;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 2px 6px;
-  min-height: 20px;
-  border-radius: 4px;
-  background: rgba(15, 27, 35, 0.04);
-  color: rgba(15, 27, 35, 0.45);
-  font-size: 10px;
-  line-height: 1.2;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  background: #f0f0f0;
+  color: #999;
+  font-size: 11px;
   border: 1px solid transparent;
 }
 .phase-segment .phase-num {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
-  opacity: 0.7;
 }
 .phase-segment.phase-done {
-  background: rgba(42, 122, 42, 0.08);
-  color: rgba(42, 122, 42, 0.7);
+  background: #e8f5e8;
+  color: #2a7a2a;
 }
 .phase-segment.phase-active {
-  background: rgba(31, 122, 224, 0.1);
-  color: rgba(31, 122, 224, 0.9);
-  border-color: rgba(31, 122, 224, 0.3);
+  background: #e0ecf9;
+  color: #1f7ae0;
+  border-color: #1f7ae0;
 }
 .phase-segment.phase-waiting {
-  background: rgba(192, 132, 0, 0.08);
-  color: rgba(192, 132, 0, 0.85);
-  border-color: rgba(192, 132, 0, 0.3);
+  background: #fff7e0;
+  color: #c08400;
+  border-color: #f5c842;
 }
 
 /* --- Chat Panel ------------------------------------------------------------ */
@@ -1467,7 +1492,7 @@ span.project-meta {
   }
 
   .phase-segment {
-    min-width: 56px;
+    min-width: 72px;
   }
 
   .run-status-bar {
