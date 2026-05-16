@@ -908,9 +908,6 @@ span.project-meta {
   background: #fafafa;
 }
 .runtime-selector {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
   width: min(280px, 100%);
   margin: 0 0 10px;
   padding: 3px;
@@ -922,28 +919,12 @@ span.project-meta {
   width: 100%;
   margin: 0 0 8px;
 }
-.runtime-legend {
-  width: 100%;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 4px;
-  padding: 0 2px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #68737d;
+.runtime-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
 }
-.runtime-legend-hint {
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 500;
-  font-size: 10px;
-  color: #98a3ab;
-}
-.runtime-selector:disabled {
+.runtime-selector.is-disabled {
   opacity: 0.68;
 }
 .runtime-option {
@@ -978,7 +959,7 @@ span.project-meta {
   outline: 2px solid #1f7ae0;
   outline-offset: 2px;
 }
-.runtime-selector:disabled .runtime-option {
+.runtime-selector.is-disabled .runtime-option {
   cursor: not-allowed;
 }
 .runtime-badge {

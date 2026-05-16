@@ -89,35 +89,34 @@ export function ProjectList({ activeId, onSelect }: Props) {
             onChange={(e) => setNewName(e.target.value)}
             disabled={createMut.isPending}
           />
-          <fieldset
-            className="runtime-selector runtime-selector-create"
-            disabled={createMut.isPending}
+          <div
+            className={`runtime-selector runtime-selector-create${createMut.isPending ? " is-disabled" : ""}`}
+            role="radiogroup"
             aria-label="选择 AI 运行时"
           >
-            <legend className="runtime-legend">
-              运行时
-              <span className="runtime-legend-hint">创建后不可更改</span>
-            </legend>
-            {RUNTIME_OPTIONS.map((option) => {
-              const checked = runtime === option.value;
-              return (
-                <label
-                  key={option.value}
-                  className={`runtime-option${checked ? " selected" : ""}`}
-                  title={option.hint}
-                >
-                  <input
-                    type="radio"
-                    name="agent-provider"
-                    value={option.value}
-                    checked={checked}
-                    onChange={() => setRuntime(option.value)}
-                  />
-                  <span>{option.label}</span>
-                </label>
-              );
-            })}
-          </fieldset>
+            <div className="runtime-options">
+              {RUNTIME_OPTIONS.map((option) => {
+                const checked = runtime === option.value;
+                return (
+                  <label
+                    key={option.value}
+                    className={`runtime-option${checked ? " selected" : ""}`}
+                    title={option.hint}
+                  >
+                    <input
+                      type="radio"
+                      name="agent-provider"
+                      value={option.value}
+                      checked={checked}
+                      onChange={() => setRuntime(option.value)}
+                      disabled={createMut.isPending}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
           <div className="form-actions">
             <button type="submit" disabled={!newName.trim() || createMut.isPending}>
               创建
