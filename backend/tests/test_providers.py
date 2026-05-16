@@ -75,6 +75,35 @@ def test_claude_events_normalize_to_internal_protocol() -> None:
     assert result["result"] == "done"
 
 
+def test_claude_suppresses_task_progress_heartbeats() -> None:
+    provider = ClaudeProvider()
+
+    # Claude Code emits one of these per Edit/Write call inside a subagent.
+    # The Edit/Write bubbles already render from the assistant tool_use blocks,
+    # so the heartbeats should be dropped entirely.
+    heartbeat = {
+        "type": "system",
+        "subtype": "task_progress",
+        "task_id": "a3bc47a5ceff5bc06",
+        "tool_use_id": "toolu_vrtx_01FjH12NxnvAwZrrn3db5hSD",
+        "description": "Writing 01_requirements.md",
+        "subagent_type": "requirement-analyzer",
+        "last_tool_name": "Write",
+    }
+    assert events(provider, heartbeat) == []
+
+    # Unknown system subtypes still surface so we don't silently swallow new
+    # event shapes, but as a clean agent_system event rather than raw JSON.
+    unknown = events(
+        provider,
+        {"type": "system", "subtype": "future_thing", "message": "hello"},
+    )
+    assert len(unknown) == 1
+    assert unknown[0]["type"] == "agent_system"
+    assert unknown[0]["level"] == "info"
+    assert unknown[0]["message"] == "hello"
+
+
 def test_claude_command_injects_is_sandbox_for_root_skip_permissions(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

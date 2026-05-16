@@ -102,7 +102,10 @@ class ClaudeProvider(AgentRuntime):
             return [ProviderStreamEvent(raw_event(channel, line))]
         if not isinstance(payload, dict):
             return [ProviderStreamEvent(raw_event(channel, line))]
-        return [ProviderStreamEvent(_normalize_claude_event(self, payload, channel))]
+        event = _normalize_claude_event(self, payload, channel)
+        if event is None:
+            return []
+        return [ProviderStreamEvent(event)]
 
     def missing_binary_message(self) -> str:
         return (
@@ -172,15 +175,28 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 def _normalize_claude_event(
     provider: ClaudeProvider, payload: dict[str, Any], channel: str
-) -> AgentEvent:
+) -> AgentEvent | None:
     typ = payload.get("type")
 
-    if typ == "system" and payload.get("subtype") == "init":
-        return agent_session_start(
-            provider,
-            session_id=_as_str(payload.get("session_id")),
-            raw=payload,
-        )
+    if typ == "system":
+        subtype = payload.get("subtype")
+        if subtype == "init":
+            return agent_session_start(
+                provider,
+                session_id=_as_str(payload.get("session_id")),
+                raw=payload,
+            )
+        # Claude Code emits per-tool progress heartbeats (subtype="task_progress")
+        # for every Edit/Write call inside a subagent. The Write/Edit bubbles
+        # already render in the chat from the assistant `tool_use` blocks, so
+        # surfacing each heartbeat as raw JSON just clutters the transcript.
+        # Drop them entirely instead of falling through to the agent_raw path.
+        if subtype == "task_progress":
+            return None
+        # Any other system subtype: keep it visible but normalized, so we don't
+        # dump raw JSON into the chat for shapes we haven't taught the UI yet.
+        message = _as_str(payload.get("message")) or f"system event: {subtype or 'unknown'}"
+        return system_event("info", message, raw=payload)
 
     if typ == "assistant":
         content = _message_content(payload)
