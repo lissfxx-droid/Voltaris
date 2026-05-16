@@ -507,15 +507,15 @@ span.project-meta {
 /* --- Phase Progress -------------------------------------------------------- */
 
 .phase-progress {
-  border-bottom: 1px solid #e5e5e5;
-  padding: 12px 16px;
+  border-bottom: 1px solid #eef0f2;
+  padding: 8px 16px 10px;
   background: white;
 }
 .phase-header {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 .phase-title {
   font-size: 16px;
@@ -541,38 +541,42 @@ span.project-meta {
 
 .phase-bar {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
 .phase-segment {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
-  padding: 6px 4px;
-  border-radius: 6px;
-  background: #f0f0f0;
-  color: #999;
-  font-size: 11px;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 6px;
+  min-height: 20px;
+  border-radius: 4px;
+  background: rgba(15, 27, 35, 0.04);
+  color: rgba(15, 27, 35, 0.45);
+  font-size: 10px;
+  line-height: 1.2;
   border: 1px solid transparent;
 }
 .phase-segment .phase-num {
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
+  opacity: 0.7;
 }
 .phase-segment.phase-done {
-  background: #e8f5e8;
-  color: #2a7a2a;
+  background: rgba(42, 122, 42, 0.08);
+  color: rgba(42, 122, 42, 0.7);
 }
 .phase-segment.phase-active {
-  background: #e0ecf9;
-  color: #1f7ae0;
-  border-color: #1f7ae0;
+  background: rgba(31, 122, 224, 0.1);
+  color: rgba(31, 122, 224, 0.9);
+  border-color: rgba(31, 122, 224, 0.3);
 }
 .phase-segment.phase-waiting {
-  background: #fff7e0;
-  color: #c08400;
-  border-color: #f5c842;
+  background: rgba(192, 132, 0, 0.08);
+  color: rgba(192, 132, 0, 0.85);
+  border-color: rgba(192, 132, 0, 0.3);
 }
 
 /* --- Chat Panel ------------------------------------------------------------ */
@@ -1463,7 +1467,7 @@ span.project-meta {
   }
 
   .phase-segment {
-    min-width: 72px;
+    min-width: 56px;
   }
 
   .run-status-bar {
