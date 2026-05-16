@@ -60,6 +60,10 @@ class CodexProvider(AgentRuntime):
         )
 
     def build_command(self, prompt: str, workdir: Path) -> ProviderCommand:
+        # `--ask-for-approval` was removed from `codex exec` in newer Codex CLI
+        # builds (the flag still exists at the top level only). Pass the
+        # approval policy via the always-supported `-c` TOML override so the
+        # command works on both old and current Codex versions.
         argv = [
             self.bin,
             "exec",
@@ -68,8 +72,8 @@ class CodexProvider(AgentRuntime):
             str(workdir),
             "--sandbox",
             os.environ.get("CODEX_SANDBOX", "workspace-write"),
-            "--ask-for-approval",
-            os.environ.get("CODEX_APPROVAL_POLICY", "never"),
+            "-c",
+            f"approval_policy={os.environ.get('CODEX_APPROVAL_POLICY', 'never')}",
         ]
         if _env_flag("CODEX_BYPASS_SANDBOX", default=False):
             argv.append("--dangerously-bypass-approvals-and-sandbox")

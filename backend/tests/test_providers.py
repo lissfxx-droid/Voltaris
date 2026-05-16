@@ -86,7 +86,9 @@ def test_codex_command_is_explicit_and_sandboxed(monkeypatch: pytest.MonkeyPatch
     assert "--json" in command.argv
     assert command.argv[command.argv.index("--cd") + 1] == str(tmp_path)
     assert command.argv[command.argv.index("--sandbox") + 1] == "workspace-write"
-    assert command.argv[command.argv.index("--ask-for-approval") + 1] == "never"
+    assert "--ask-for-approval" not in command.argv
+    assert "approval_policy=never" in command.argv
+    assert command.argv[command.argv.index("approval_policy=never") - 1] == "-c"
     assert "--dangerously-bypass-approvals-and-sandbox" not in command.argv
     assert command.argv[-1] == "build a board"
 
