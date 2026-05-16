@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  agent_provider TEXT
 );
 
 CREATE TABLE IF NOT EXISTS runs (
@@ -58,6 +59,16 @@ async def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript(SCHEMA)
+        # SQLite lacks IF NOT EXISTS on ADD COLUMN; legacy DBs created before
+        # agent_provider was added need a one-shot migration. Detect via the
+        # column list and ignore any "duplicate column" race.
+        cur = await db.execute("PRAGMA table_info(projects)")
+        cols = {row[1] for row in await cur.fetchall()}
+        if "agent_provider" not in cols:
+            try:
+                await db.execute("ALTER TABLE projects ADD COLUMN agent_provider TEXT")
+            except aiosqlite.OperationalError:
+                pass
         await db.commit()
 
 
@@ -69,21 +80,31 @@ async def get_db():
         yield db
 
 
-async def insert_project(project_id: str, name: str) -> dict[str, Any]:
+async def insert_project(
+    project_id: str, name: str, agent_provider: str | None = None
+) -> dict[str, Any]:
     now = _now()
     async with get_db() as db:
         await db.execute(
-            "INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (project_id, name, now, now),
+            "INSERT INTO projects (id, name, created_at, updated_at, agent_provider) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (project_id, name, now, now, agent_provider),
         )
         await db.commit()
-    return {"id": project_id, "name": name, "created_at": now, "updated_at": now}
+    return {
+        "id": project_id,
+        "name": name,
+        "created_at": now,
+        "updated_at": now,
+        "agent_provider": agent_provider,
+    }
 
 
 async def list_projects() -> list[dict[str, Any]]:
     async with get_db() as db:
         rows = await db.execute_fetchall(
-            "SELECT id, name, created_at, updated_at FROM projects ORDER BY created_at DESC"
+            "SELECT id, name, created_at, updated_at, agent_provider "
+            "FROM projects ORDER BY created_at DESC"
         )
     return [dict(r) for r in rows]
 
@@ -92,7 +113,8 @@ async def get_project(project_id: str) -> dict[str, Any] | None:
     async with get_db() as db:
         row = await (
             await db.execute(
-                "SELECT id, name, created_at, updated_at FROM projects WHERE id = ?",
+                "SELECT id, name, created_at, updated_at, agent_provider "
+                "FROM projects WHERE id = ?",
                 (project_id,),
             )
         ).fetchone()

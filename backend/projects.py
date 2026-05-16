@@ -67,7 +67,14 @@ def sync_prompts(workdir: Path) -> None:
     get_provider().prepare_workdir(workdir)
 
 
-async def create_project(name: str) -> dict[str, Any]:
+async def create_project(name: str, agent_provider: str | None = None) -> dict[str, Any]:
+    # Validate the provider name early so the create flow fails before we
+    # bother making a workdir for an unknown runtime.
+    if agent_provider is not None:
+        from .providers import get_provider
+
+        get_provider(agent_provider)
+
     project_id = f"{_slugify(name)}-{uuid.uuid4().hex[:8]}"
     workdir = project_workdir(project_id)
     if workdir.exists():
@@ -87,7 +94,7 @@ async def create_project(name: str) -> dict[str, Any]:
     await _run("git", "add", "-A", cwd=workdir)
     await _run("git", "commit", "-q", "-m", "init: scaffold project", cwd=workdir)
 
-    return await db.insert_project(project_id, name)
+    return await db.insert_project(project_id, name, agent_provider=agent_provider)
 
 
 async def list_projects() -> list[dict[str, Any]]:

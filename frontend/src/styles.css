@@ -484,12 +484,13 @@ pre {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.project-meta {
+span.project-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   font-size: 11px;
+  line-height: 1.2;
   color: #68737d;
   font-family: monospace;
 }
@@ -917,6 +918,31 @@ pre {
   border-radius: 8px;
   background: #eef2f4;
 }
+.runtime-selector-create {
+  width: 100%;
+  margin: 0 0 8px;
+}
+.runtime-legend {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+  padding: 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #68737d;
+}
+.runtime-legend-hint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  font-size: 10px;
+  color: #98a3ab;
+}
 .runtime-selector:disabled {
   opacity: 0.68;
 }
@@ -954,6 +980,34 @@ pre {
 }
 .runtime-selector:disabled .runtime-option {
   cursor: not-allowed;
+}
+.runtime-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #eef2f4;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+  color: #4f5b64;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.project-runtime {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #eef2f4;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+  color: #4f5b64;
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .chat-input textarea {
   width: 100%;
@@ -1071,8 +1125,30 @@ pre {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+.md-tab-state-icon {
+  display: inline-flex;
+  align-items: center;
+  height: 12px;
+  color: #98a3ab;
+  transform-origin: center;
+  animation: md-tab-eye-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
+}
 .md-tab.active .md-tab-state {
   color: #176f6b;
+}
+.md-tab.active .md-tab-state-icon {
+  color: #176f6b;
+}
+
+@keyframes md-tab-eye-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .artifact-toolbar {

@@ -2,17 +2,31 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { api } from "../api";
-import type { Project } from "../types";
+import type { AgentProvider, Project } from "../types";
 
 interface Props {
   activeId: string | null;
   onSelect: (id: string | null) => void;
 }
 
+type RuntimeChoice = "claude" | "codex";
+
+const RUNTIME_OPTIONS: Array<{ value: RuntimeChoice; label: string; hint: string }> = [
+  { value: "claude", label: "Claude", hint: "Claude Code 编排器，支持原生 Agent 工具协议" },
+  { value: "codex", label: "Codex", hint: "Codex CLI，按内联子代理方式执行" },
+];
+
+function providerDisplay(provider?: AgentProvider | null): string {
+  if (provider === "codex") return "Codex";
+  if (provider === "claude") return "Claude";
+  return "Claude";
+}
+
 export function ProjectList({ activeId, onSelect }: Props) {
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [runtime, setRuntime] = useState<RuntimeChoice>("claude");
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
@@ -21,12 +35,14 @@ export function ProjectList({ activeId, onSelect }: Props) {
   });
 
   const createMut = useMutation({
-    mutationFn: (name: string) => api.createProject(name),
+    mutationFn: (input: { name: string; runtime: RuntimeChoice }) =>
+      api.createProject(input.name, input.runtime),
     onSuccess: (proj: Project) => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       onSelect(proj.id);
       setCreating(false);
       setNewName("");
+      setRuntime("claude");
     },
   });
 
@@ -41,7 +57,7 @@ export function ProjectList({ activeId, onSelect }: Props) {
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newName.trim();
-    if (trimmed) createMut.mutate(trimmed);
+    if (trimmed) createMut.mutate({ name: trimmed, runtime });
   };
 
   return (
@@ -73,6 +89,35 @@ export function ProjectList({ activeId, onSelect }: Props) {
             onChange={(e) => setNewName(e.target.value)}
             disabled={createMut.isPending}
           />
+          <fieldset
+            className="runtime-selector runtime-selector-create"
+            disabled={createMut.isPending}
+            aria-label="选择 AI 运行时"
+          >
+            <legend className="runtime-legend">
+              运行时
+              <span className="runtime-legend-hint">创建后不可更改</span>
+            </legend>
+            {RUNTIME_OPTIONS.map((option) => {
+              const checked = runtime === option.value;
+              return (
+                <label
+                  key={option.value}
+                  className={`runtime-option${checked ? " selected" : ""}`}
+                  title={option.hint}
+                >
+                  <input
+                    type="radio"
+                    name="agent-provider"
+                    value={option.value}
+                    checked={checked}
+                    onChange={() => setRuntime(option.value)}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              );
+            })}
+          </fieldset>
           <div className="form-actions">
             <button type="submit" disabled={!newName.trim() || createMut.isPending}>
               创建
@@ -82,6 +127,7 @@ export function ProjectList({ activeId, onSelect }: Props) {
               onClick={() => {
                 setCreating(false);
                 setNewName("");
+                setRuntime("claude");
               }}
               disabled={createMut.isPending}
             >
@@ -111,6 +157,7 @@ export function ProjectList({ activeId, onSelect }: Props) {
               </span>
               <span className="project-meta">
                 <span>{shortId(p.id)}</span>
+                <span className="project-runtime">{providerDisplay(p.agent_provider)}</span>
                 <span>{formatDate(p.updated_at)}</span>
               </span>
             </button>

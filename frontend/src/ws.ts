@@ -20,6 +20,7 @@ import type {
   AgentTool,
   ChatItem,
   ChatToolUseItem,
+  RawLine,
   WSMessage,
 } from "./types";
 
@@ -315,6 +316,26 @@ function applyEvent(state: SocketState, msg: WSMessage): SocketState {
         ];
       }
       next.lastEvent = m.is_error ? "Run result error" : "Run result ready";
+      return next;
+    }
+
+    case "agent_raw": {
+      // Provider lines that the normalizer didn't recognize. Surface them as
+      // info-level system entries so anything that slips through the Codex
+      // event taxonomy is still visible in the timeline instead of being
+      // silently dropped (the cause of the empty Codex step view).
+      const m = msg as RawLine;
+      const text = m.text ? `[${m.channel}] ${m.text}` : `[${m.channel}]`;
+      next.chat = [
+        ...next.chat,
+        {
+          kind: "system",
+          id: `raw-${seq}`,
+          level: "info",
+          text,
+        },
+      ];
+      next.lastEvent = `${m.channel} raw line`;
       return next;
     }
   }
